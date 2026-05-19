@@ -3,11 +3,12 @@ const moment = require("moment");
 const evt = require('../../../lib/event');
 const { RaiseLogEvent } = require('../../../lib/helpers/rmqlog');
 const { handleApiError } = require('../../middlewares/helper')
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.list = async function (req, res) {
 	const ROUTE = 'app/tyrescraps/list';
 	try {
-		if (["XE FTE", "ARSA"].includes(res.locals.role) && !req.query.AccountId) {
+		if (USERROLES.isXeFTE(res.locals.role) && !req.query.AccountId) {
 			return res.send({ success: false, error: 'Please select customer to proceed.' });
 		}
 
@@ -29,7 +30,7 @@ exports.list = async function (req, res) {
 exports.archivelist = async function (req, res) {
 	const ROUTE = 'app/tyrescraps/archivelist';
 	try {
-		if (["XE FTE", "ARSA"].includes(res.locals.role) && !req.query.AccountId) {
+		if (USERROLES.isXeFTE(res.locals.role) && !req.query.AccountId) {
 			return res.send({ success: false, error: 'Please select customer to proceed.' });
 		}
 
@@ -51,6 +52,9 @@ exports.archivelist = async function (req, res) {
 exports.scrapComplete = async function (req, res) {
 	const ROUTE = 'app/tyrescraps/scrapComplete';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.body.tyreData || !Object.keys(req.body.tyreData).length) return res.send({ success: false, error: 'Tyre data missing.', message: 'Tyre data missing.' });
 
 		let tyreData; try { tyreData = JSON.parse(req.body.tyreData); } catch { return res.send({ success: false, error: 'Error parsing tyre data.', message: 'Error parsing tyre data.' }); }
@@ -59,7 +63,7 @@ exports.scrapComplete = async function (req, res) {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Total ${tyreNumbers.length} tyres received for scrap complete.`);
 
 		let AccountId = res.locals.AccountId;
-		if (["XE FTE", "ARSA", "AMCC FTE"].includes(res.locals.role)) AccountId = res.locals.accountIds;
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) AccountId = res.locals.accountIds;
 
 		const tyres = await models.Tyre.findAll({
 			include: [{

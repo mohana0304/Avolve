@@ -5,12 +5,13 @@ const evt = require('../../../lib/event');
 const cities = require('../../../config/cities.json');
 const { Op } = require('sequelize')
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.listByRole = async function (req, res) {
 	const ROUTE = 'app/geozones/listByRole';
 
 	try {
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1 || res.locals.AccountId != res.locals.masterAccountId) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)|| res.locals.AccountId != res.locals.masterAccountId) {
 			return res.send({ success: false, error: 'Not Authorized to this user.' });
 		}
 
@@ -19,7 +20,7 @@ exports.listByRole = async function (req, res) {
 		};
 
 		let primaryZones = [];
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let result = await avolveHelper.fetchGeozones(res);
 			if (!result.success) {
 				logger.RaiseLogEvent(ROUTE, 'error', result.error, `Workshops not assigned to this user.`);
@@ -71,7 +72,7 @@ exports.mapview = async function (req, res) {
 	try {
 		logger.RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.userFullName}`);
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1 || res.locals.AccountId != res.locals.masterAccountId) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role) || res.locals.AccountId != res.locals.masterAccountId) {
 			return res.send({ success: false, error: 'Not Authorized to this user.' });
 		}
 
@@ -80,7 +81,7 @@ exports.mapview = async function (req, res) {
 			activeStatus: true,
 			AccountId: res.locals.AccountId
 		}
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 
 			if (!geozoneResult.success) {
@@ -148,6 +149,9 @@ exports.mapview = async function (req, res) {
 exports.nearbyZones = async function (req, res) {
 	const ROUTE = 'app/geozones/nearbyZones';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.query.lat || !req.query.lon) {
 			return res.send({ success: false, error: 'Input paramters missing.' });
 		}
@@ -171,7 +175,7 @@ exports.nearbyZones = async function (req, res) {
 
 		let amcsPlan = Account.details && Account.details.plan == 1 && true || false;
 		let fteWorkshops = [];
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				logger.RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -187,11 +191,11 @@ exports.nearbyZones = async function (req, res) {
 			whereClause.ztype = 33;
 		}
 
-		if (["AMCC FTE"].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
-		if (["XE FTE", "ARSA"].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role)) {
 			whereClause.AccountId = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
@@ -207,7 +211,7 @@ exports.nearbyZones = async function (req, res) {
 		for (let Geozone of Geozones) {
 			Geozone = JSON.parse(JSON.stringify(Geozone));
 			Geozone.primary = true;
-			if (res.locals.role == "AMCS FTE") {
+			if (USERROLES.isAMCSFTE(res.locals.role)) {
 				Geozone.primary = fteWorkshops.find(x => x == Geozone.id) && true || false;
 			} else if (amcsPlan) {
 				let matchAcc = Geozone.accountIds.find(x => parseInt(x.id) == res.locals.AccountId);

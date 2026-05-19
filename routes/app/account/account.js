@@ -12,10 +12,15 @@ const evt = require('../../../lib/event');
 const redisHelper = require('../../../lib/helpers/redis');
 const fs = require('fs');
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.listWeb = async function (req, res) {
 	const ROUTE = 'app/accounts/listWeb';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (res.locals.AccountId != res.locals.masterAccountId) { // Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -42,7 +47,7 @@ exports.listWeb = async function (req, res) {
 			whereClause.status = [0, 1] // both active and inactive customers
 		}
 
-		if (!["Admin", "FTS Admin"].includes(res.locals.role)) {
+		if (!USERROLES.isAdmin.includes(res.locals.role)) {
 			whereClause.id = res.locals.accountIds;
 		}
 
@@ -64,6 +69,10 @@ exports.listWeb = async function (req, res) {
 exports.listPaykm = async function (req, res) {
 	const ROUTE = 'app/accounts/listPaykm';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (res.locals.AccountId != res.locals.masterAccountId) { // Avolve
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -89,6 +98,10 @@ exports.listPaykm = async function (req, res) {
 exports.list = async function (req, res) {
 	const ROUTE = 'app/accounts/list';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		let authorized = res.locals.role == 'IOT Service' || res.locals.AccountId == res.locals.masterAccountId;
 		if (!authorized) { //Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
@@ -128,7 +141,7 @@ exports.list = async function (req, res) {
 					attributes: [],
 					model: models.UserRole,
 					where: {
-						name: 'FM'
+						name: { [Op.in]: USERROLES.FM_ROLES}
 					}
 				}],
 				where: {
@@ -156,6 +169,10 @@ exports.list = async function (req, res) {
 exports.listVendors = async function (req, res) {
 	const ROUTE = 'app/accounts/listVendors';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		let AccountId = res.locals.AccountId;
 		if (req.query.AccountId) {
 			AccountId = req.query.AccountId;
@@ -196,7 +213,7 @@ exports.listVendors = async function (req, res) {
 exports.listByUser = async function (req, res) {
 	const ROUTE = 'app/accounts/listByUser';
 	try {
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -295,7 +312,7 @@ exports.listByUserWeb = async function (req, res) {
 	const ROUTE = 'app/accounts/listByUserWeb';
 	try {
 
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM', 'Admin'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.isValidRole(res.local.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -304,8 +321,8 @@ exports.listByUserWeb = async function (req, res) {
 			AccountIdParent: res.locals.masterAccountId
 		};
 
-		if (res.locals.role != 'Admin') {
-			if (['KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.isAdmin(res.locals.role)) {
+			if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 				accountWhere.id = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 			} else {
 				if (req.query.UserId) {
@@ -314,7 +331,7 @@ exports.listByUserWeb = async function (req, res) {
 						accountWhere.id = result.results.map(x => x.id);
 					}
 				} else {
-					let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+					let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 					let kamResult = await avolveHelper.getKamListByUser(zmId);
 					if (kamResult.success && kamResult.results.length) {
 						let custResult = await avolveHelper.getCustomersByUser(kamResult.results.map(x => x.id), true, res.locals.masterAccountId);
@@ -340,6 +357,9 @@ exports.listByUserWeb = async function (req, res) {
 exports.getAccountSummary = async function (req, res) {
 	const ROUTE = 'app/accounts/getAccountSummary';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: `Missing input parameter` });
 		}
@@ -366,7 +386,7 @@ exports.getAccountSummary = async function (req, res) {
 			include: [{
 				model: models.UserRole,
 				where: {
-					name: ['FO']
+					name: {[Op.in]: USERROLES.FO_ROLES}
 				}
 			}],
 			where: {
@@ -462,7 +482,7 @@ exports.getAccountSummary = async function (req, res) {
 				attributes: ['id', 'name'],
 				model: models.UserRole,
 				where: {
-					name: ['KAM', 'FTS KAM']
+					name: { [Op.in] : USERROLES.KAM_ROLES}
 				},
 			}],
 			where: {
@@ -502,6 +522,10 @@ exports.getAccountSummary = async function (req, res) {
 exports.getServiceMaster = async function (req, res) {
 	const ROUTE = 'app/accounts/getServiceMaster';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (!req.params.id) {
 			return res.send({ success: false, error: `Missing input parameter` });
 		}
@@ -632,6 +656,9 @@ exports.getServiceMaster = async function (req, res) {
 exports.getOffer = async function (req, res) {
 	const ROUTE = 'app/accounts/getOffer';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: `Missing input parameter` });
 		}
@@ -737,6 +764,9 @@ exports.getOffer = async function (req, res) {
 exports.serviceConfigBulkUpdate = async function (req, res) {
 	const ROUTE = 'app/accounts/serviceConfigBulkUpdate';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.file, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (res.locals.AccountId != res.locals.masterAccountId) { // Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
@@ -947,6 +977,10 @@ exports.serviceConfigBulkUpdate = async function (req, res) {
 exports.psiConfigBulkUpdate = async function (req, res) {
 	const ROUTE = 'app/accounts/psiConfigBulkUpdate';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		RaiseLogEvent(ROUTE, req.body.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (res.locals.AccountId != res.locals.masterAccountId) { // Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
@@ -1123,6 +1157,10 @@ exports.psiConfigBulkUpdate = async function (req, res) {
 exports.getAccount = async function (req, res) {
 	const ROUTE = 'app/accounts/getAccount';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (res.locals.AccountId != res.locals.masterAccountId) { //Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -1226,6 +1264,10 @@ exports.getAccount = async function (req, res) {
 exports.syncServiceMaster = async function (req, res) {
 	const ROUTE = 'app/accounts/syncServiceMaster';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (res.locals.AccountId != res.locals.masterAccountId) { //Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -1276,6 +1318,10 @@ exports.syncServiceMaster = async function (req, res) {
 exports.syncIPMaster = async function (req, res) {
 	const ROUTE = 'app/accounts/syncIPMaster';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (res.locals.AccountId != res.locals.masterAccountId) { //Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -1376,7 +1422,7 @@ exports.createWeb = async function (req, res) {
 	try {
 		RaiseLogEvent(ROUTE, req.body.custId, req.body, `Requested by ${res.local.userFullName} (${res.locsls.UserId})`);
 
-		if (res.locals.AccountId != res.locals.masterAccountId && res.locals.role == 'Admin') { //Avolve Master Login
+		if (res.locals.AccountId != res.locals.masterAccountId && USERROLES.ADMIN_ROLES.includes(res.locals.role)) { //Avolve Master Login
 			return res.send({ success: false, error: 'Not authorized to this API.' });
 		}
 
@@ -1608,6 +1654,10 @@ exports.createWeb = async function (req, res) {
 exports.ftsCreate = async function (req, res) {
 	const ROUTE = 'app/accounts/ftsCreate';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		RaiseLogEvent(ROUTE, req.body.custId, req.body, `Requested by ${res.local.userFullName} (${res.locsls.UserId})`);
 		if (res.locals.AccountId != res.locals.masterAccountId) { //Avolve Master Login
 			return res.send({ success: false, error: 'Not authorized to this API.' });
@@ -1794,7 +1844,7 @@ exports.ftsCreate = async function (req, res) {
 			evt.events.emit("create-apollo-service-types", { AccountId: Account.id });
 
 			let users = [{
-				role: "Admin",
+				role: { [Op.in] : USERROLES.ADMIN_ROLES},
 				firstName: cust.ownerName,
 				username: `${cust.transportName}admin`.toLowerCase(),
 				password: cust.phoneNo,
@@ -1885,7 +1935,7 @@ function validateInput(request, users) {
 exports.getOfferConfig = async function (req, res) {
 	const ROUTE = 'app/accounts/getOfferConfig';
 	try {
-		if (!['Admin', 'FTS Admin', 'KAM'].includes(res.locals.role)) {
+		if (![...USERROLES.ADMIN_ROLES, ...USERROLES.KAM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized' });
 		}
 
@@ -1913,6 +1963,9 @@ exports.getOfferConfig = async function (req, res) {
 exports.ftsBulkCreate = async function (req, res) {
 	const ROUTE = 'app/accounts/ftsBulkCreate';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.file, req.body, `Requested by ${res.local.userFullName} (${res.locsls.UserId})`);
 		if (!req.file) {
 			return res.send({ success: false, error: 'File not found' });
@@ -2256,7 +2309,7 @@ exports.ftsBulkCreate = async function (req, res) {
 					evt.events.emit("create-apollo-service-types", { AccountId: Account.id });
 
 					let users = [{
-						role: "Admin",
+						role: {[Op.in]:USERROLES.ADMIN_ROLES},
 						firstName: cust.ownerName,
 						username: `${cust.transportName}admin`.toLowerCase(),
 						password: cust.phone,
@@ -2294,7 +2347,7 @@ exports.ftsBulkCreate = async function (req, res) {
 exports.count = async function (req, res) {
 	const ROUTE = 'app/accounts/count';
 	try {
-		if (!['KAM'].includes(res.locals.role)) {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized' });
 		}
 
@@ -2331,7 +2384,7 @@ exports.count = async function (req, res) {
 exports.vehicleGroupsList = async function (req, res) {
 	const ROUTE = 'app/accounts/vehicleGroupsList';
 	try {
-		if (res.locals.AccountId != res.locals.masterAccountId || !['KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (res.locals.AccountId != res.locals.masterAccountId || !USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
 
@@ -2412,7 +2465,7 @@ exports.vehicleGroupsList = async function (req, res) {
 exports.draftList = async function (req, res) {
 	const ROUTE = 'app/accounts/draftList';
 	try {
-		if (!['KAM'].includes(res.locals.role)) {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized' });
 		}
 
@@ -2453,7 +2506,7 @@ exports.draftList = async function (req, res) {
 exports.getDraftAccount = async function (req, res) {
 	const ROUTE = 'app/accounts/getDraftAccount';
 	try {
-		if (!['KAM'].includes(res.locals.role)) {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized' });
 		}
 
@@ -2491,7 +2544,7 @@ exports.draftUpdate = async function (req, res) {
 		const { AccountId, mdgId } = req.body;
 		RaiseLogEvent(ROUTE, mdgId, req.body, `Requested by ${res.local.userFullName} (${res.locsls.UserId})`);
 
-		if (res.locals.role != 'KAM') {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -2537,7 +2590,7 @@ exports.tisCreate = async function (req, res) {
 	const ROUTE = 'app/accounts/tisCreate';
 	try {
 		RaiseLogEvent(ROUTE, req.body.mdgId, req.body, `Requested by ${res.local.userFullName} (${res.locsls.UserId})`);
-		if (res.locals.role != 'KAM') {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized to this API.' });
 		}
 
@@ -2609,7 +2662,7 @@ exports.tisCreate = async function (req, res) {
 				attributes: [],
 				model: models.UserRole,
 				where: {
-					name: 'XE FTE'
+					name: {[Op.in]:USERROLES.XE_FTE_ROLES}
 				}
 			}],
 			where: {
@@ -2627,7 +2680,7 @@ exports.tisCreate = async function (req, res) {
 				attributes: [],
 				model: models.UserRole,
 				where: {
-					name: 'KAM'
+					name: {[Op.in]:USERROLES.KAM_ROLES}
 				}
 			}],
 			where: {
@@ -2742,10 +2795,10 @@ exports.tisCreate = async function (req, res) {
 			for (const user of users) {
 				if (user.isSameAsPrimaryUser) {
 					delete user.isSameAsPrimaryUser;
-					if (user.role == 'FM') {
+					if (USERROLES.FM_ROLES.includes(user.role)) {
 						userBysSameAsFlag = { ...user, role: 'FO' };
 					}
-					if (user.role == 'FO') {
+					if (USERROLES.FO_ROLES.includes(user.role)) {
 						userBysSameAsFlag = { ...user, role: 'FM' };
 					}
 				}
@@ -2757,7 +2810,7 @@ exports.tisCreate = async function (req, res) {
 			// Admin user object creation and password assignment
 			const adminPass = (req.body.phoneNo && req.body.phoneNo.trim()) || req.body.users.find(u => u.mobile).mobile || '';
 			users.unshift({
-				role: "Admin",
+				role: {[Op.in]:USERROLES.ADMIN_ROLES},
 				firstName: req.body.oname,
 				username: req.body.tname,
 				mobile: req.body.phoneNo,
@@ -3014,6 +3067,10 @@ async function validateCustomerPayload(cust, materConfig) {
 exports.getOfferWeb = async function (req, res) {
 	const ROUTE = 'app/accounts/getOfferWeb';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (!req.params.id) {
 			return res.send({ success: false, error: `Missing input parameter` });
 		}
@@ -3105,6 +3162,10 @@ exports.getOfferWeb = async function (req, res) {
 exports.offerUpdate = async (req, res) => {
 	const ROUTE = 'app/accounts/offerUpdate';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		RaiseLogEvent(ROUTE, AplOffer, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (!req.params.id || !req.body.AccountId) {
 			return res.send({ success: false, error: 'Input parameter missing' });
@@ -3302,6 +3363,9 @@ exports.offerUpdate = async (req, res) => {
 exports.listCustomers = async function (req, res) {
 	const ROUTE = 'app/accounts/listCustomers';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (res.locals.AccountId != res.locals.masterAccountId) { //Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -3310,10 +3374,10 @@ exports.listCustomers = async function (req, res) {
 			AccountIdParent: res.locals.AccountId,
 			status: 1
 		};
-		if (res.locals.role != "Admin") {
+		if (!USERROLES.ADMIN_ROLES.includes(res.locals.role)) {
 			accountWhere.id = res.locals?.accountIds?.length ? res.locals.accountIds : [];
 		}
-		if (res.locals.role == "KAM") {
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			let custResult = await avolveHelper.getCustomersByUser(res.locals.UserId, true, res.locals.masterAccountId);
 			if (custResult.success && custResult.results.length) {
 				accountWhere.id = custResult.results.map(x => x.id);
@@ -3345,6 +3409,9 @@ exports.listCustomers = async function (req, res) {
 exports.serviceConfig = async function (req, res) {
 	const ROUTE = 'app/accounts/serviceConfig';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let Account = await models.Account.findOne({
 			attributes: ['serviceConfig'],
 			where: {

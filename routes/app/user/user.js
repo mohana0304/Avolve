@@ -17,6 +17,7 @@ const MailBotBcc = ["mail@kttelematic.com"];
 const itEmail = ["itsupport@kttelematic.com"];
 const { isIndianRegion, getMasterAccIdByRegion } = require('../../../lib/helpers/region');
 const { handleApiError } = require('../../middlewares/helper')
+const USERROLES = require('../../../lib/helpers/userroles');
 
 const ValueFirst = require('../../../lib/helpers/valueFirst');
 const valueFirst = new ValueFirst();
@@ -50,6 +51,9 @@ function getRandomInt(min, max) {
 exports.get = async function (req, res) {
 	const ROUTE = 'app/users/get';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'UserId Missing.' });
 		}
@@ -86,6 +90,9 @@ exports.get = async function (req, res) {
 exports.getByManager = async function (req, res) {
 	const ROUTE = 'app/users/getByManager';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'UserId Missing.' });
 		}
@@ -118,7 +125,7 @@ exports.getByManager = async function (req, res) {
 exports.getKamList = async function (req, res) {
 	const ROUTE = 'app/users/getKamList'
 	try {
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM'].includes(res.locals.role)) {
+		if (![...USERROLES.HO_ROLES,...USERROLES.ZM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not authorized.' });
 		}
 		if (!req.params.id) {
@@ -140,7 +147,7 @@ exports.getKamList = async function (req, res) {
 		}
 
 		let zmId = User.id;
-		if (["HO Sales", "FTS HO"].includes(res.locals.role)) {
+		if (USERROLES.HO_ROLES.includes(res.locals.role)) {
 			zmId = User.details && User.details.bdm || [];
 		}
 		let response = await avolveHelper.getKamListByUser(zmId, true, true);
@@ -157,12 +164,15 @@ exports.getKamList = async function (req, res) {
 exports.getMenuList = async function (req, res) {
 	const ROUTE = 'app/users/getMenuList';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!res.locals.role) {
 			return res.send({ success: false, error: 'UserId Missing.' });
 		}
 
 		let menus = aplMenus && aplMenus[res.locals.role] && aplMenus[res.locals.role] || [];
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			if ([3, 4].indexOf(res.locals.plan) > -1) {
 				menus = menus.filter(x => x != "Service Schedules");
 			}
@@ -177,6 +187,9 @@ exports.getMenuList = async function (req, res) {
 exports.getSession = async function (req, res) {
 	const ROUTE = 'app/users/getSession';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'UserId Missing.' });
 		}
@@ -220,7 +233,7 @@ exports.getSession = async function (req, res) {
 			return res.send({ success: false, error: 'Customer not assigned to this user.' });
 		}
 
-		if (['FM', 'FO', 'KAM', 'DE FTE', 'XE FTE', 'ARSA', 'AMCS FTE', 'AMCC FTE', 'ZM', 'FTS ZM', 'HO Sales', 'FTS HO', "FTS KAM"].indexOf(User.UserRole.name) == -1) {
+		if (![...USERROLES.FLEET_ROLES,...USERROLES.FMS_SALES_ROLES,...USERROLES.FTE_ROLES].includes(User.UserRole.name)) {
 			return res.send({ success: false, error: 'Not Authorized to this user role.' });
 		}
 
@@ -250,6 +263,9 @@ exports.getSession = async function (req, res) {
 exports.login = async function (req, res) {
 	const ROUTE = 'app/users/login';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.body.mobile, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		const mobileNo = req.body.mobile ? req.body.mobile.replace(/\s/g, '').trim() : null;
 		const email = req.body.email ? req.body.email.trim() : null;
@@ -287,7 +303,7 @@ exports.login = async function (req, res) {
 		if (!User.Account) {
 			return res.send({ success: false, error: 'Customer not assigned to this user.' });
 		}
-		if (['FM', 'FO', 'KAM', 'DE FTE', 'XE FTE', 'ARSA', 'AMCS FTE', 'AMCC FTE', 'ZM', 'FTS ZM', 'HO Sales', 'FTS HO', 'FTS KAM'].indexOf(User.UserRole.name) == -1) {
+		if (![...USERROLES.FLEET_ROLES,...USERROLES.FMS_SALES_ROLES,...USERROLES.FTE_ROLES].includes(User.UserRole.name)) {
 			return res.send({ success: false, error: 'Not Authorized to this user role.' });
 		}
 
@@ -333,6 +349,9 @@ exports.login = async function (req, res) {
 exports.listByRole = async function (req, res) {
 	const ROUTE = 'app/users/listByRole';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.role) {
 			return res.send({ success: false, error: 'User Role Missing.' });
 		}
@@ -360,6 +379,9 @@ exports.listByRole = async function (req, res) {
 exports.register = async function (req, res) {
 	const ROUTE = 'app/users/register';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.body.mobile || 'log', req.body, `Data received`);
 		const mobileNo = req.body.mobile ? req.body.mobile.replace(/\s/g, '').trim() : null;
 		const email = req.body.email ? req.body.email.trim() : null;
@@ -387,7 +409,7 @@ exports.register = async function (req, res) {
 				model: models.UserRole,
 				attributes: ['id', 'name'],
 				where: {
-					name: "FO"
+					name: {[Op.in]:USERROLES.FO_ROLES}
 				}
 			}, {
 				model: models.Account,
@@ -410,7 +432,7 @@ exports.register = async function (req, res) {
 		if (!User.Account) {
 			return res.send({ success: false, error: `Your account is not associated with Avolve.` });
 		}
-		if (User.UserRole.name != 'FO') {
+		if (!USERROLES.FO_ROLES(User.UserRole.name)) {
 			return res.send({ success: false, error: `Only Fleet Owner logins are allowed to self register.` });
 		}
 		if (!pwd && User.activeStatus == true) {
@@ -567,6 +589,9 @@ function maskEmail(email) {
 exports.resetPassword = async function (req, res) {
 	const ROUTE = 'avolve/users/resetPassword';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.body.mobile || req.body.email || 'log', req.body, 'Data received');
 
 		// Channel detection
@@ -833,6 +858,9 @@ exports.resetPassword = async function (req, res) {
 exports.otpTokenVerify = async (req, res) => {
 	const ROUTE = 'avolve/otp/token/verify';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		const token = req.get('X-AVL-OtpToken');
 		RaiseLogEvent(ROUTE, 'log', { token }, 'Data received');
 		if (!token) {
@@ -888,6 +916,9 @@ exports.otpTokenVerify = async (req, res) => {
 exports.updateProfile = async function (req, res) {
 	const ROUTE = 'app/users/updateProfile';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.files, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
 		if (!req.params.id) {
@@ -940,12 +971,12 @@ exports.updateProfile = async function (req, res) {
 exports.getTeams = async function (req, res) {
 	const ROUTE = 'app/users/getTeams';
 	try {
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let results = [], excelResults = [], accountIds = [], UserIds = [], fteAlerts = [];
-		if (['KAM', 'FTS KAM'].includes(res.locals.role)) { // KAM, FTS KAM
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) { // KAM, FTS KAM
 			let fteResult = await avolveHelper.getFteUsersByCustomers(res.locals.accountIds, false, res.locals.masterAccountId);
 			let fteUsers = fteResult.success && fteResult.results || [];
 			let fteUserCount = fteUsers.length;
@@ -971,7 +1002,7 @@ exports.getTeams = async function (req, res) {
 						workshops: x.workshops,
 						customers: x.customers,
 						role: x.role,
-						highlight: x.role == 'AMCS FTE' && true || false
+						highlight: USERROLES.isAMCSFTE(x.role) && true || false
 					}
 				})
 			});
@@ -982,7 +1013,7 @@ exports.getTeams = async function (req, res) {
 				accountIds = result.results.map(x => x.id);
 				UserIds = req.query.UserId;
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				if (kamResult.success && kamResult.results.length) {
 					UserIds = kamResult.results.map(x => x.id);
@@ -997,7 +1028,7 @@ exports.getTeams = async function (req, res) {
 					attributes: ['id', 'name'],
 					model: models.UserRole,
 					where: {
-						name: ['KAM', 'FTS KAM']
+						name: {[Op.in]:USERROLES.KAM_ROLES}
 					},
 					required: true
 				}],
@@ -1041,7 +1072,7 @@ exports.getTeams = async function (req, res) {
 							workshops: x.workshops,
 							customers: x.customers,
 							role: x.role,
-							highlight: x.role == 'AMCS FTE' && true || false
+							highlight: USERROLES.isAMCSFTE(x.role) && true || false
 						}
 					})
 				});
@@ -1106,7 +1137,7 @@ exports.getTeams = async function (req, res) {
 exports.getUserSummay = async function (req, res) {
 	const ROUTE = 'app/users/getUserSummay';
 	try {
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 		if (!req.params.id) {
@@ -1133,7 +1164,7 @@ exports.getUserSummay = async function (req, res) {
 				attributes: ['id', 'name'],
 				model: models.UserRole,
 				where: {
-					name: ['AMCS FTE', 'AMCC FTE', 'DE FTE', 'XE FTE', 'ARSA']
+					name: {[Op.in]:[...USERROLES.AMC_FTE_ROLES,...USERROLES.XEFTE_ROLES,...USERROLES.DEFTE_ROLES]}
 				},
 				required: true
 			}],
@@ -1153,7 +1184,7 @@ exports.getUserSummay = async function (req, res) {
 				attributes: ['id', 'name'],
 				model: models.UserRole,
 				where: {
-					name: ['KAM', 'FTS KAM']
+					name: {[Op.in]: USERROLES.KAM_ROLES}
 				},
 				required: true
 			}],
@@ -1169,9 +1200,9 @@ exports.getUserSummay = async function (req, res) {
 		}
 
 		let accountIds = [];
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].includes(User.UserRole.name)) {
+		if (USERROLES.isAMCCFTE(User.UserRole.name) || USERROLES.isXeFTE(User.UserRole.name)) {
 			accountIds = User.accountIds.map(x => parseInt(x.id));
-		} else if (User.UserRole.name == 'DE FTE') {
+		} else if (USERROLES.isDeFTE(User.UserRole.name)) {
 			accountIds = [User.AccountId];
 		} else {
 			if (User.AplUser && User.AplUser.geozones) {
@@ -1278,7 +1309,7 @@ exports.getUserSummay = async function (req, res) {
 			}
 		}
 
-		if (['DE FTE', 'XE FTE', 'ARSA', 'AMCC FTE'].includes(User.UserRole.name)) {
+		if (USERROLES.isAMCCFTE(User.UserRole.name) || USERROLES.isXeFTE(User.UserRole.name) || USERROLES.isDeFTE(User.UserRole.name)) {
 			result.workShopCount = await models.Geozone.count({
 				where: {
 					AccountId: {[Op.in]:accountIds}
@@ -1286,7 +1317,7 @@ exports.getUserSummay = async function (req, res) {
 			});
 		}
 
-		if (User.UserRole.name == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(User.UserRole.name)) {
 			result.serviceSummary.priServices = priAlerts && priAlerts.details || [];
 			result.serviceSummary.priServices.map(x => {
 				x.name = x.sName;
@@ -1314,7 +1345,7 @@ exports.getUserSummay = async function (req, res) {
 exports.getUserByRole = async function (req, res) {
 	const ROUTE = 'app/users/getUserByRole';
 	try {
-		if (['Admin'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.isAdmin(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 		if (!req.query.AccountId) {
@@ -1525,6 +1556,9 @@ async function fetchAplAlerts(accountIds, excelExport) {
 exports.emailUnsubscribe = async (req, res) => {
 	const ROUTE = 'app/users/emailUnsubscribe';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.query.email, req.query, 'Data Received');
 		if (!req.query.email) {
 			return res.status(400).send('Email is required for emailUnsubscribe.');
@@ -1583,7 +1617,7 @@ exports.emailUnsubscribe = async (req, res) => {
 exports.getFteByKam = async (req, res) => {
 	const ROUTE = 'app/users/getFteByKam';
 	try {
-		if (!['KAM'].includes(res.locals.role)) {
+		if (!USERROLES.isKAM(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -1621,7 +1655,7 @@ exports.getFteByKam = async (req, res) => {
 				model: models.UserRole,
 				attributes: [],
 				required: true,
-				where: { name: 'XE FTE' }
+				where: { name: {[Op.in]:USERROLES.XE_FTE_ROLES} }
 			}],
 			where: {
 				activeStatus: true
@@ -1652,7 +1686,7 @@ exports.getFteByKam = async (req, res) => {
 exports.getAccountSummary = async (req, res) => {
 	const ROUTE = 'app/users/getAccountSummary';
 	try {
-		if (!['KAM'].includes(res.locals.role)) {
+		if (!USERROLES.isKAM(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -1710,6 +1744,9 @@ exports.getAccountSummary = async (req, res) => {
 }
 
 exports.googlelogin = function (req, res) {
+	if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 	const ROUTE = 'users/googlelogin';
 	RaiseLogEvent(ROUTE, 'log', `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 	if (!(req.body && req.body.idToken)) {
@@ -1859,6 +1896,9 @@ exports.googlelogin = function (req, res) {
 exports.listByAccountId = async function (req, res) {
 	const ROUTE = 'app/users/listByAccountId';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let whereClause = {
 			AccountId: res.locals.AccountId
 		};
@@ -1871,7 +1911,7 @@ exports.listByAccountId = async function (req, res) {
 			model: models.UserRole
 		}
 
-		if (res.locals.role == 'FTS Admin') {
+		if (USERROLES.isAdmin(res.locals.role)) {
 			userRoleInclude.required = true;
 			userRoleInclude.where = {
 				name: {
@@ -1914,6 +1954,9 @@ exports.listByAccountId = async function (req, res) {
 exports.userConfig = async function (req, res) {
 	const ROUTE = 'app/users/userConfig';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, res.locals.UserId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		const Users = await models.User.findOne({
 			attributes: ['id', 'menu'],

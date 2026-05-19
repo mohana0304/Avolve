@@ -5,10 +5,14 @@ const moment = require('moment');
 const { getCustomersByUser } = require("../../../lib/helpers/avolveHelper");
 const { Op } = require("sequelize");
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.list = async function (req, res) {
 	const ROUTE = 'app/vendors/list';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		var whereClause = {
 			AccountId: res.locals.AccountId
 		};
@@ -24,7 +28,7 @@ exports.list = async function (req, res) {
 		}
 
 		let vendorAccountsWhere = { required: false };
-		if (res.locals.role == 'KAM') {
+		if (USERROLES.isKAM(res.locals.role)) {
 			let customers = await getCustomersByUser(res.locals.UserId, false, res.locals.masterAccountId) || {};
 			let accountIds = customers.results && customers.results.map(x => x.id) || [];
 			if (!accountIds.length) {

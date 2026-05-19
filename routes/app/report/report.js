@@ -9,10 +9,14 @@ const evt = require('../../../lib/event');
 const avolvePdfHelper = require('../../../lib/helpers/avolvePdf');
 const reportHelper = require('../../../lib/helpers/reports');
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.iosDashboard = async function (req, res) {
 	const ROUTE = 'app/reports/iosDashboard ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let sdate;
 		if (!req.query.date) {
 			sdate = moment().startOf('month').toISOString();
@@ -20,11 +24,11 @@ exports.iosDashboard = async function (req, res) {
 			sdate = moment(req.query.date).toISOString();
 		}
 
-		if (["XE FTE", "ARSA"].includes(res.locals.role) && !req.query.AccountId) {
+		if (USERROLES.XEFTE_ROLES.includes(res.locals.role) && !req.query.AccountId) {
 			return res.send({ success: false, error: 'Please select customer to proceed.' });
 		}
 
-		let AccountId = ["XE FTE", "ARSA"].includes(res.locals.role) ? req.query.AccountId : res.locals.AccountId;
+		let AccountId = USERROLES.XEFTE_ROLES.includes(res.locals.role) ? req.query.AccountId : res.locals.AccountId;
 
 		let AplReport = await models.AplReport.findOne({
 			where: {
@@ -165,7 +169,7 @@ function serviceSummaryStruct() {
 exports.salesDashboard = async function (req, res) {
 	const ROUTE = 'app/reports/salesDashboard';
 	try {
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -346,13 +350,13 @@ function invoiceSummaryStruct() {
 exports.missedServiceAlertsDownload = async function (req, res) {
 	const ROUTE = 'app/reports/missedServiceAlertsDownload ';
 	try {
-		if (["XE FTE", "ARSA"].includes(res.locals.role) && !req.query.AccountId) {
+		if (USERROLES.XEFTE_ROLES.includes(res.locals.role) && !req.query.AccountId) {
 			return res.send({ success: false, error: 'Please select customer to proceed.' });
 		}
 
-		let accountIds = ["XE FTE", "ARSA"].includes(res.locals.role) ? [req.query.AccountId] : [res.locals.AccountId];
+		let accountIds = USERROLES.XEFTE_ROLES.includes(res.locals.role) ? [req.query.AccountId] : [res.locals.AccountId];
 		let kamUsers = [];
-		if (["KAM", "AMCC FTE"].includes(res.locals.role)) {
+		if (USERROLES.isKAM(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			if (req.query.AccountId) {
 				accountIds = req.query.AccountId;
 			} else {
@@ -363,14 +367,14 @@ exports.missedServiceAlertsDownload = async function (req, res) {
 					accountIds = res.locals.accountIds;
 				}
 			}
-		} else if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM'].includes(res.locals.role)) {
+		} else if ([...USERROLES.HO_ROLES,...USERROLES.ZM_ROLES].includes(res.locals.role)) {
 			if (req.query.UserId) {
 				let kamResult = await avolveHelper.getKamListByUser(req.query.UserId);
 				kamUsers = kamResult.results;
 				let result = await avolveHelper.getCustomersByUser(req.query.UserId, false, res.locals.masterAccountId);
 				accountIds = result.results.map(x => x.id);
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				kamUsers = kamResult.results;
 				if (kamResult.success && kamResult.results.length) {
@@ -380,12 +384,12 @@ exports.missedServiceAlertsDownload = async function (req, res) {
 			}
 		}
 
-		if (res.locals.role == 'AMCS FTE') {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let custResult = await avolveHelper.getAMCSCustomersByFte(res.locals.UserId, res.locals.masterAccountId);
 			accountIds = custResult.success && custResult.results.map(x => x.id) || [];
 		}
 
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			let kamResult = await avolveHelper.getKamListByCustomers(accountIds, res.locals.masterAccountId);
 			kamUsers = kamResult.success && kamResult.results || [];
 		}
@@ -479,7 +483,7 @@ exports.missedServiceAlertsDownload = async function (req, res) {
 					{ header: "Status", key: "status", width: 20 }
 				];
 
-				if (!['FM', 'FO'].includes(res.locals.role)) {
+				if (!USERROLES.FLEET_ROLES.includes(res.locals.role)) {
 					columns.splice(3, 0, { header: "Offer", key: "offerType", width: 20 },
 						{ header: "Sub Offer", key: "subOfferType", width: 20 },
 						{ header: "Plan", key: "plan", width: 20 },
@@ -490,7 +494,7 @@ exports.missedServiceAlertsDownload = async function (req, res) {
 				let results = missedAlerts.results.map(detail => {
 					let accountUser = accountUsers.length && accountUsers.find(x => x.AccountId == detail.AccountId) || '';
 					detail.alertDueDate = detail.alertDueDate && moment(detail.alertDueDate).format('DD/MM/YYYY') || '';
-					detail.kamName = ["KAM", "FTS KAM"].includes(res.locals.role) ? res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}` || res.locals.username : accountUser && accountUser.kamName || '';
+					detail.kamName = USERROLES.KAM_ROLES.includes(res.locals.role) ? res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}` || res.locals.username : accountUser && accountUser.kamName || '';
 					detail.fteName = accountUser && accountUser.fteName || '';
 					detail.alertBasedOn = 'Days';
 					return { ...detail };
@@ -521,13 +525,13 @@ exports.missedServiceAlertsDownload = async function (req, res) {
 exports.missedServiceAlerts = async function (req, res) {
 	const ROUTE = 'app/reports/missedServiceAlerts ';
 	try {
-		if (["XE FTE", "ARSA"].includes(res.locals.role) && !req.query.AccountId) {
+		if (USERROLES.XEFTE_ROLES.includes(res.locals.role) && !req.query.AccountId) {
 			return res.send({ success: false, error: 'Please select customer to proceed.' });
 		}
 
-		let accountIds = ["XE FTE", "ARSA"].includes(res.locals.role) ? [req.query.AccountId] : [res.locals.AccountId];
+		let accountIds = USERROLES.XEFTE_ROLES.includes(res.locals.role) ? [req.query.AccountId] : [res.locals.AccountId];
 		let kamUsers = [];
-		if (["KAM", "AMCC FTE", 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.isKAM(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			if (req.query.AccountId) {
 				accountIds = req.query.AccountId;
 			} else {
@@ -538,14 +542,14 @@ exports.missedServiceAlerts = async function (req, res) {
 					accountIds = res.locals.accountIds;
 				}
 			}
-		} else if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM'].includes(res.locals.role)) {
+		} else if ([...USERROLES.HO_ROLES,...USERROLES.ZM_ROLES].includes(res.locals.role)) {
 			if (req.query.UserId) {
 				let kamResult = await avolveHelper.getKamListByUser(req.query.UserId);
 				kamUsers = kamResult.results;
 				let result = await avolveHelper.getCustomersByUser(req.query.UserId, false, res.locals.masterAccountId);
 				accountIds = result.results.map(x => x.id);
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.ZM_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				kamUsers = kamResult.results;
 				if (kamResult.success && kamResult.results.length) {
@@ -555,7 +559,7 @@ exports.missedServiceAlerts = async function (req, res) {
 			}
 		}
 
-		if (res.locals.role == 'AMCS FTE') {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let custResult = await avolveHelper.getAMCSCustomersByFte(res.locals.UserId, res.locals.masterAccountId);
 			accountIds = custResult.success && custResult.results.map(x => x.id) || [];
 		}
@@ -567,7 +571,7 @@ exports.missedServiceAlerts = async function (req, res) {
 			FMUsers = accountsResult.result && accountsResult.result.FMUsers || [];
 		}
 
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			let kamResult = await avolveHelper.getKamListByCustomers(accountIds, res.locals.masterAccountId);
 			kamUsers = kamResult.success && kamResult.results || [];
 		}
@@ -575,7 +579,7 @@ exports.missedServiceAlerts = async function (req, res) {
 		let fteUsers = await avolveHelper.getFteUsersByCustomers(accountIds, false, res.locals.masterAccountId);
 		fteUsers = fteUsers.results || [];
 
-		let accountUsers = await avolveHelper.getUsersByAccounts(accountIds, ["KAM", "FTS KAM"].includes(res.locals.role) && [] || kamUsers, fteUsers);
+		let accountUsers = await avolveHelper.getUsersByAccounts(accountIds, USERROLES.KAM_ROLES.includes(res.locals.role) && [] || kamUsers, fteUsers);
 		accountUsers = accountUsers.results || [];
 
 		let sdate, edate;
@@ -682,7 +686,7 @@ exports.missedServiceAlerts = async function (req, res) {
 				let results = missedAlerts.results.map(detail => {
 					let accountUser = accountUsers.length && accountUsers.find(x => x.AccountId == detail.AccountId) || '';
 					detail.alertDueDate = detail.alertDueDate && moment(detail.alertDueDate).format('DD/MM/YYYY') || '';
-					detail.kamName = ["KAM", "FTS KAM"].includes(res.locals.role) ? res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}` || res.locals.username : accountUser && accountUser.kamName || '';
+					detail.kamName = USERROLES.KAM_ROLES.includes(res.locals.role) ? res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}` || res.locals.username : accountUser && accountUser.kamName || '';
 					detail.fteName = accountUser && accountUser.fteName || '';
 					return { ...detail };
 				});
@@ -707,12 +711,12 @@ exports.missedServiceAlerts = async function (req, res) {
 exports.salesInventoryAlerts = async function (req, res) {
 	const ROUTE = 'app/reports/salesInventoryAlerts ';
 	try {
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let accountIds = [], kamUsers = [];
-		if (['KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			if (req.query.AccountId) {
 				accountIds = req.query.AccountId;
 			} else {
@@ -730,7 +734,7 @@ exports.salesInventoryAlerts = async function (req, res) {
 				let result = await avolveHelper.getCustomersByUser(req.query.UserId, false, res.locals.masterAccountId);
 				accountIds = result.results.map(x => x.id);
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				kamUsers = kamResult.results;
 				if (kamResult.success && kamResult.results.length) {
@@ -784,7 +788,7 @@ exports.salesInventoryAlerts = async function (req, res) {
 			let accountUser = accountUsers.length && accountUsers.find(x => x.AccountId == Account.id) || '';
 			if (tyreStakeCount) {
 				inventoryAlerts.push({
-					kamName: ["KAM", "FTS KAM"].includes(res.locals.role) ? (res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}`) || (res.locals.username || '') : accountUser && accountUser.kamName || '',
+					kamName: USERROLES.KAM_ROLES.includes(res.locals.role) ? (res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}`) || (res.locals.username || '') : accountUser && accountUser.kamName || '',
 					fteName: accountUser && accountUser.fteName || '',
 					offerType: aplOffer && aplOffer.offerType || '',
 					subOfferType: aplOffer && aplOffer.subOfferType || '',
@@ -836,12 +840,12 @@ exports.salesInventoryAlerts = async function (req, res) {
 exports.salesPaymentAlerts = async function (req, res) {
 	const ROUTE = 'app/reports/salesPaymentAlerts ';
 	try {
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let accountIds = [], kamUsers = [];
-		if (["KAM", "FTS KAM"].includes(res.locals.role)) {
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			if (req.query.AccountId) {
 				accountIds = req.query.AccountId;
 			} else {
@@ -860,7 +864,7 @@ exports.salesPaymentAlerts = async function (req, res) {
 				let result = await avolveHelper.getCustomersByUser(req.query.UserId, false, res.locals.masterAccountId);
 				accountIds = result.results.map(x => x.id);
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				kamUsers = kamResult.results;
 				if (kamResult.success && kamResult.results.length) {
@@ -911,7 +915,7 @@ exports.salesPaymentAlerts = async function (req, res) {
 		});
 
 		let accountUsers = [];
-		if (res.locals.role != "KAM") {
+		if (!USERROLES.isKAM(res.locals.role)) {
 			accountUsers = await avolveHelper.getUsersByAccounts(accountIds, kamUsers, []);
 			accountUsers = accountUsers.results || [];
 		}
@@ -940,7 +944,7 @@ exports.salesPaymentAlerts = async function (req, res) {
 			let aplOffer = AplOffers.find(x => x.AccountId == Account.id);
 			let { slab, channel } = avolveHelper.avolveOfferLookUp(aplOffer) || {};
 			paymentAlerts.push({
-				kamName: ["KAM", "FTS KAM"].includes(res.locals.role) ? (res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}`) || (res.locals.username || '') : accountUser && accountUser.kamName || '',
+				kamName: USERROLES.KAM_ROLES.includes(res.locals.role) ? (res.locals.firstName && `${res.locals.firstName} ${res.locals.lastName || ''}`) || (res.locals.username || '') : accountUser && accountUser.kamName || '',
 				plan: plan,
 				AccountId: Account.id,
 				customerId: Account && Account.name || '',
@@ -1001,7 +1005,7 @@ exports.salesPaymentAlerts = async function (req, res) {
 exports.listMonthlySummary = async function (req, res) {
 	const ROUTE = 'app/reports/listMonthlySummary';
 	try {
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, result: [], error: 'Not Authorized' });
 		}
 
@@ -1056,7 +1060,7 @@ exports.listMonthlySummary = async function (req, res) {
 exports.getMonthlySummary = async function (req, res) {
 	const ROUTE = 'app/reports/getMonthlySummary ';
 	try {
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 		if (!req.params.id) {
@@ -1091,7 +1095,7 @@ exports.updateKamNote = async function (req, res) {
 	try {
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested User: ${res.locals.username}`);
 
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -1148,7 +1152,7 @@ exports.downloadMonthlySummary = async function (req, res) {
 	try {
 		logger.RaiseLogEvent(ROUTE, req.params.id, {}, `Requested User: ${res.locals.username}`);
 
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -1199,7 +1203,7 @@ exports.emailMonthlySummary = async function (req, res) {
 	try {
 		logger.RaiseLogEvent(ROUTE, req.params.id, {}, `Requested User: ${res.locals.username}`);
 
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -1223,12 +1227,12 @@ exports.emailMonthlySummary = async function (req, res) {
 exports.stakeAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/stakeAnalytics';
 	try {
-		if (!['FM', 'FO', 'HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'DE FTE', 'XE FTE', 'ARSA', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.isValidRole(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let AccountId = res.locals.AccountId;
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'XE FTE', 'ARSA', 'FTS KAM'].includes(res.locals.role)) {
+		if ([...USERROLES.FMS_SALES_ROLES,...USERROLES.XEFTE_ROLES].includes(res.locals.role)) {
 			AccountId = req.query.AccountId || [];
 		}
 
@@ -1390,12 +1394,12 @@ exports.stakeAnalytics = async function (req, res) {
 exports.avolveScrapAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/avolveScrapAnalytics ';
 	try {
-		if (!['FM', 'FO', 'HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'DE FTE', 'XE FTE', 'ARSA', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.isValidRole(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let AccountId = res.locals.AccountId;
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'XE FTE', 'ARSA', 'FTS KAM'].includes(res.locals.role)) {
+		if ([...USERROLES.FMS_SALES_ROLES,...USERROLES.XEFTE_ROLES].includes(res.locals.role)) {
 			AccountId = req.query.AccountId || [];
 		}
 
@@ -1593,7 +1597,7 @@ function setDefaultvalue(obj, key) {
 exports.downloadAvolveCustomers = async function (req, res) {
 	const ROUTE = 'app/reports/downloadAvolveCustomers';
 	try {
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -1699,7 +1703,7 @@ exports.downloadAvolveCustomers = async function (req, res) {
 exports.downloadMFCustomers = async function (req, res) {
 	const ROUTE = 'app/reports/downloadMFCustomers ';
 	try {
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -1753,13 +1757,13 @@ exports.downloadMFCustomers = async function (req, res) {
 exports.mfDashboard = async function (req, res) {
 	const ROUTE = 'app/reports/mfDashboard ';
 	try {
-		if (!['HO Sales', 'ZM', 'KAM', 'FTS HO', 'FTS ZM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		//#region user hierarchy with customers
 		let accountIds = [];
-		if (['KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			if (req.query.AccountId) {
 				accountIds = req.query.AccountId;
 			} else {
@@ -1777,7 +1781,7 @@ exports.mfDashboard = async function (req, res) {
 					accountIds = customerData.results.map(x => x.id);
 				}
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				if (kamResult.success && kamResult.results.length) {
 					let custResult = await avolveHelper.getCustomersByUser(kamResult.results.map(x => x.id), false , res.locals.masterAccountId);
@@ -1877,7 +1881,7 @@ exports.mfDashboard = async function (req, res) {
 exports.tyrePerformanceAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/tyrePerformanceAnalytics ';
 	try {
-		if (!['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -2142,6 +2146,9 @@ exports.tyrePerformanceAnalytics = async function (req, res) {
 exports.performaceAnalyticsInfo = async function (req, res) {
 	const ROUTE = 'app/reports/performaceAnalyticsInfo';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let template = "<html><h2 style=\"font-size: 16px; font-weight: 600; text-align: center;\">Projected Mileage Estimation</h2><br>Mileage Projection is calculated on the basis of actual kms driven by the tyres and their utilized tread depth.<br><br>While running, tyre performs differently based on their tread wear. Based on which, we have segregated Tyre performance in 4 stages.<br><br><b>0-30% Tread Wear :</b><br>Initial break in of tyres do not warrant to predict/project the service life of any specific tyre.<br><br><b>31-50% Tread Wear :</b><br>It's not practical to accurately predict/project the service life of any specific tyre in chronological time since service conditions vary widely.<b><br><br>51-85% Tread Wear :</b><br>It's practical to accurately predict/project the service life of any specific tyre based on its wear rate stability.<br><br><b>86% &amp; above Tread Wear :</b><br>Mileage projection accuracy reaches its peak due to more actual tyre running, comprehensive wear data and established patterns.<br><br><br><i><font color='#979797'>Tyres are built to deliver thousands of kms of excellent service. For maximum benefit, tyres must be maintained properly to avoid any tyre damage that may result in premature removal from service before the tread is worn out upto its minimum (TWI) depth.</font></i><html>";
 		return res.send({ success: true, result: template });
 	} catch (error) {
@@ -2152,7 +2159,7 @@ exports.performaceAnalyticsInfo = async function (req, res) {
 exports.mfInUseTyres = async function (req, res) {
 	const ROUTE = 'app/reports/mfInUseTyres';
 	try {
-		if (!["KAM", "FTS KAM", "ZM", "FTS ZM", "HO Sales", "FTS HO"].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: "Not Authorized" });
 		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(3, 'all') || {}; // mf in use configuration
@@ -2163,7 +2170,7 @@ exports.mfInUseTyres = async function (req, res) {
 
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2180,7 +2187,7 @@ exports.mfInUseTyres = async function (req, res) {
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
 				app: true,
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				tyreStatus: "In Use",
 				typeId: 3,
@@ -2218,6 +2225,9 @@ exports.mfInUseTyres = async function (req, res) {
 exports.downloadServiceSummary = async function (req, res) {
 	const ROUTE = 'app/reports/downloadServiceSummary';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(23, 'all') || {}; // service summary
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2226,7 +2236,7 @@ exports.downloadServiceSummary = async function (req, res) {
 
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2242,7 +2252,7 @@ exports.downloadServiceSummary = async function (req, res) {
 				masterAccountId: res.locals.masterAccountId,
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 23,
 				allCustomers,
@@ -2280,7 +2290,7 @@ exports.downloadServiceSummary = async function (req, res) {
 exports.mfNotInUseTyres = async function (req, res) {
 	const ROUTE = 'app/reports/mfNotInUseTyres ';
 	try {
-		if (!["KAM", "FTS KAM", "ZM", "FTS ZM", "HO Sales", "FTS HO"].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: "Not Authorized" });
 		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(4, 'all') || {}; // mf not in use configuration
@@ -2291,7 +2301,7 @@ exports.mfNotInUseTyres = async function (req, res) {
 
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2308,7 +2318,7 @@ exports.mfNotInUseTyres = async function (req, res) {
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
 				app: true,
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				tyreStatus: "Not In Use",
 				typeId: 4,
@@ -2346,7 +2356,7 @@ exports.mfNotInUseTyres = async function (req, res) {
 exports.mfScrappedTyres = async function (req, res) {
 	const ROUTE = 'app/reports/mfScrappedTyres';
 	try {
-		if (!["KAM", "FTS KAM", "ZM", "FTS ZM", "HO Sales", "FTS HO"].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: "Not Authorized" });
 		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(5, 'all') || {}; // mf scrapped configuration
@@ -2357,7 +2367,7 @@ exports.mfScrappedTyres = async function (req, res) {
 
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2374,7 +2384,7 @@ exports.mfScrappedTyres = async function (req, res) {
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
 				app: true,
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				tyreStatus: "Scrapped",
 				typeId: 5,
@@ -2413,6 +2423,9 @@ exports.mfScrappedTyres = async function (req, res) {
 exports.mfVehicles = async function (req, res) {
 	const ROUTE = 'app/reports/mfVehicles ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(8, 'all') || {}; // mf vehicle summary configuration
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2469,6 +2482,9 @@ exports.mfVehicles = async function (req, res) {
 exports.downloadTyreAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/downloadTyreAnalytics';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(1, 'all') || {}; // tyre analytics configuration
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2477,7 +2493,7 @@ exports.downloadTyreAnalytics = async function (req, res) {
 
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2493,7 +2509,7 @@ exports.downloadTyreAnalytics = async function (req, res) {
 				masterAccountId: res.locals.masterAccountId,
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 1,
 				allCustomers,
@@ -2529,6 +2545,9 @@ exports.downloadTyreAnalytics = async function (req, res) {
 exports.downloadScrapAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/downloadScrapAnalytics';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(6, 'all') || {}; // scrapAnalytics configuration
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2538,7 +2557,7 @@ exports.downloadScrapAnalytics = async function (req, res) {
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let tempTableName = `z_${tableName}_${res.locals.UserId}_${req.query.deviceId}`;
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2554,7 +2573,7 @@ exports.downloadScrapAnalytics = async function (req, res) {
 				masterAccountId: res.locals.masterAccountId,
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 6,
 				allCustomers,
@@ -2590,6 +2609,9 @@ exports.downloadScrapAnalytics = async function (req, res) {
 exports.downloadStakeAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/downloadStakeAnalytics';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(10, 'all') || {}; // stake analytics configuration
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2599,7 +2621,7 @@ exports.downloadStakeAnalytics = async function (req, res) {
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let tempTableName = `z_${tableName}_${res.locals.UserId}_${req.query.deviceId}`;
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2615,7 +2637,7 @@ exports.downloadStakeAnalytics = async function (req, res) {
 				masterAccountId: res.locals.masterAccountId,
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp:USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 10,
 				allCustomers,
@@ -2651,6 +2673,9 @@ exports.downloadStakeAnalytics = async function (req, res) {
 exports.downloadInspectionAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/downloadInspectionAnalytics ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(11, 'all') || {}; // inspection analytics configuration
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2660,7 +2685,7 @@ exports.downloadInspectionAnalytics = async function (req, res) {
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let tempTableName = `z_${tableName}_${res.locals.UserId}_${req.query.deviceId}`;
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2676,7 +2701,7 @@ exports.downloadInspectionAnalytics = async function (req, res) {
 				masterAccountId: res.locals.masterAccountId,
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 11,
 				allCustomers,
@@ -2713,6 +2738,9 @@ exports.downloadInspectionAnalytics = async function (req, res) {
 exports.downloadPerformanceAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/downloadPerformanceAnalytics';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(25, 'all') || {}; // performance analytics configuration
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -2722,7 +2750,7 @@ exports.downloadPerformanceAnalytics = async function (req, res) {
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let tempTableName = `z_${tableName}_${res.locals.UserId}_${req.query.deviceId}`;
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -2738,7 +2766,7 @@ exports.downloadPerformanceAnalytics = async function (req, res) {
 				masterAccountId: res.locals.masterAccountId,
 				tempTable: tempTableName,
 				accountIds: {[Op.in]:AccountIds},
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 25,
 				allCustomers,
@@ -2776,7 +2804,7 @@ exports.downloadPerformanceAnalytics = async function (req, res) {
 exports.downloadDraftCustomers = async function (req, res) {
 	const ROUTE = 'app/reports/downloadDraftCustomers';
 	try {
-		if (!['KAM'].includes(res.locals.role)) {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -2823,6 +2851,9 @@ exports.downloadDraftCustomers = async function (req, res) {
 exports.apolloFleetInventoryAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/apolloFleetInventoryAnalytics ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let result = await reportHelper.inventoryAnalytics(req, res);
 		if (result.error) {
 			logger.RaiseLogEvent(ROUTE, 'error', result.error, `Error: ${result.error}`);
@@ -2841,6 +2872,9 @@ exports.apolloFleetInventoryAnalytics = async function (req, res) {
 exports.apolloFleetScrapAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/apolloFleetScrapAnalytics ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let result = await reportHelper.scrapAnalytics(req, res);
 		if (result.error) {
 			logger.RaiseLogEvent(ROUTE, 'error', result.error, `Error fetching srap analytics`);
@@ -2859,6 +2893,9 @@ exports.apolloFleetScrapAnalytics = async function (req, res) {
 exports.apolloFleetStakeAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/apolloFleetStakeAnalytics';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let result = await reportHelper.stakeAnalytics(req, res);
 		if (result.error) {
 			logger.RaiseLogEvent(ROUTE, 'error', result.error, `Error fetching stake analytics`);
@@ -2886,6 +2923,9 @@ exports.apolloFleetStakeAnalytics = async function (req, res) {
 exports.apolloFleetInspectionAnalytics = async function (req, res) {
 	const ROUTE = 'app/reports/apolloFleetInspectionAnalytics  ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.query && req.query.AccountId || 'log', req.query, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (!req.query.sdate || !req.query.edate) {
 			return res.send({ success: false, error: 'Missing input parameters.', inspectionAnalytics: {} });

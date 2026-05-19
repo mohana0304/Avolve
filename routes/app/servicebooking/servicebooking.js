@@ -7,12 +7,13 @@ const evt = require('../../../lib/event');
 const { Op } = require('sequelize');
 const { parseUTC } = require('../../../lib/dateFormatter');
 const { handleApiError } = require('../../middlewares/helper')
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.create = async function (req, res) {
 	const ROUTE = 'app/servicebookings/create ';
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -54,7 +55,7 @@ exports.create = async function (req, res) {
 			id: req.body.AssetId
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -65,7 +66,7 @@ exports.create = async function (req, res) {
 			whereClause.AccountId = result.customers && result.customers.length && result.customers.map(x => x.id) || [];
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
@@ -86,11 +87,11 @@ exports.create = async function (req, res) {
 			return res.send({ success: false, error: 'Vehicle not found in system.' });
 		}
 
-		if (res.locals.role == "AMCC FTE" && Asset.plan != 2) {
+		if (USERROLES.isAMCCFTE(res.locals.role) && Asset.plan != 2) {
 			return res.send({ success: false, error: 'AMC Captive offer not offered for this vehicle.' });
 		}
 
-		if (res.locals.role == "AMCS FTE" && Asset.plan != 1) {
+		if (USERROLES.isAMCSFTE(res.locals.role) && Asset.plan != 1) {
 			return res.send({ success: false, error: 'AMC Shared offer not offered for this vehicle.' });
 		}
 
@@ -129,7 +130,7 @@ exports.create = async function (req, res) {
 		}
 
 		let status = 0;
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, 'Workshops not assigned to this user');
@@ -234,7 +235,7 @@ exports.create = async function (req, res) {
 			createdBy: [user.createdBy]
 		};
 		user.requestedBy = user.createdBy;
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			log.requestedBy = [user.requestedBy];
 			//#region primary/secondary assignment
 			geozone.type = 'Primary';
@@ -350,7 +351,7 @@ exports.createAdhoc = async function (req, res) {
 	const ROUTE = 'app/servicebookings/createAdhoc ';
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: { msg: 'Not Authorized.' } });
 		}
 
@@ -393,11 +394,11 @@ exports.createAdhoc = async function (req, res) {
 			return res.send({ success: false, error: { msg: 'Vehicle not found in system.' } });
 		}
 
-		if (res.locals.role == "AMCC FTE" && Asset.plan != 2) {
+		if (USERROLES.isAMCCFTE(res.locals.role) && Asset.plan != 2) {
 			return res.send({ success: false, error: { msg: 'AMC Captive offer not offered for this vehicle.' } });
 		}
 
-		if (res.locals.role == "AMCS FTE" && Asset.plan != 1) {
+		if (USERROLES.isAMCSFTE(res.locals.role) && Asset.plan != 1) {
 			return res.send({ success: false, error: { msg: 'AMC Shared offer not offered for this vehicle.' } });
 		}
 
@@ -677,7 +678,7 @@ exports.onboardingRequest = async function (req, res) {
 	const ROUTE = 'app/servicebookings/onboardingRequest';
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -740,7 +741,7 @@ exports.onboardingRequest = async function (req, res) {
 		if (hasBookingAvail && hasBookingAvail.services) {
 			let matchService = hasBookingAvail.services.find(x => x.serviceName == "Onboarding Service");
 			if (matchService) {
-				if (res.locals.role == 'FM') {
+				if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 					if (Geozone) {
 						return res.send({ success: false, error: `Onboarding service booking request already found on ${moment(hasBookingAvail.date).format('DD/MM/YYYY')} for ${Geozone.name || 'Requested CV Zone'}.` });
 					}
@@ -764,7 +765,7 @@ exports.onboardingRequest = async function (req, res) {
 		}
 
 		let status = 4;
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -782,7 +783,7 @@ exports.onboardingRequest = async function (req, res) {
 			}
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			let hasPrimaryCvCust = res.locals.accountIds.find(x => x == Asset.AccountId);
 			if (!hasPrimaryCvCust) {
 				return res.send({ success: false, error: 'Only Primary CV FTE allowed to request onboarding service for this vehicle.' });
@@ -872,7 +873,7 @@ exports.onboardingRequest = async function (req, res) {
 
 		let log = {};
 		log.createdBy = [user.createdBy];
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			log.requestedBy = [user.requestedBy];
 			//#region primary/secondary assignment
 			geozone.type = 'Primary';
@@ -946,11 +947,11 @@ exports.listByStatus = async function (req, res) {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
 		//#region validations & workshop, customer access
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized', results: [] });
 		}
 
-		if (res.locals.role != "FM" && !req.query.GeozoneId) {
+		if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
@@ -975,20 +976,20 @@ exports.listByStatus = async function (req, res) {
 			whereClause.date = { [Op.between]: [startDate, endDate] };
 		}
 
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			whereClause.AccountId = res.locals.AccountId;
 		} else {
 			if (req.query.status == 0) {
 				whereClause.status = [0, 4];
 			}
-			if (res.locals.role == "AMCC FTE") {
+			if (USERROLES.isAMCCFTE(res.locals.role)) {
 				whereClause.GeozoneId = req.query.GeozoneId;
 				whereClause.AccountId = res.locals.accountIds;
 			}
 		}
 
 		let accountIds = [];
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -1066,7 +1067,7 @@ exports.listByStatus = async function (req, res) {
 			result.vehicleInspection = false;
 			result.reschedule = false;
 			result.gateIn = false;
-			if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+			if (USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
 				if (req.query.GeozoneId == result.GeozoneId && result.status == 0) {
 					result.gateIn = true;
 				}
@@ -1092,7 +1093,7 @@ exports.listByStatus = async function (req, res) {
 					}
 				}
 			}
-			if (res.locals.role == "AMCS FTE") {
+			if (USERROLES.isAMCSFTE(res.locals.role)) {
 				let matchCust = accountIds.find(x => x == result.AccountId);
 				if (matchCust && result.status == 0) {
 					results.push(result);
@@ -1151,11 +1152,11 @@ exports.missedListDownload = async function (req, res) {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
 		//#region validations & workshop, customer access
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized', results: [] });
 		}
 
-		if (res.locals.role != "FM" && !req.query.GeozoneId) {
+		if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
@@ -1176,11 +1177,11 @@ exports.missedListDownload = async function (req, res) {
 			}
 		};
 
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			whereClause.AccountId = res.locals.AccountId;
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -1194,7 +1195,7 @@ exports.missedListDownload = async function (req, res) {
 			whereClause.AccountId = result.customers && result.customers.length && result.customers.map(x => x.id) || [];
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
@@ -1337,11 +1338,11 @@ exports.missedList = async function (req, res) {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
 		//#region validations & workshop, customer access
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized', results: [] });
 		}
 
-		if (res.locals.role != "FM" && !req.query.GeozoneId) {
+		if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
@@ -1369,7 +1370,7 @@ exports.missedList = async function (req, res) {
 
 		let AccountId = res.locals.AccountId;
 		//#region fetch customer for FTE's
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -1383,7 +1384,7 @@ exports.missedList = async function (req, res) {
 			AccountId = result.customers && result.customers.length && result.customers.map(x => x.id) || [];
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			AccountId = res.locals.accountIds;
 		}
 		whereClause.AccountId = AccountId;
@@ -1557,6 +1558,9 @@ exports.missedList = async function (req, res) {
 exports.rejectReasons = async function (req, res) {
 	const ROUTE = 'app/servicebookings/rejectReasons';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!res.locals.role) {
 			return res.send({ success: false, error: 'User role missing.' });
 		}
@@ -1572,7 +1576,7 @@ exports.get = async function (req, res) {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.username}`);
 
 		//#region validations & workshop, customer access
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -1580,7 +1584,7 @@ exports.get = async function (req, res) {
 			return res.send({ success: false, error: 'Missing input parameter.' });
 		}
 
-		if (res.locals.role != "FM" && !req.query.GeozoneId) {
+		if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
@@ -1589,11 +1593,11 @@ exports.get = async function (req, res) {
 			id: req.params.id
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			delete whereClause.GeozoneId;
 			whereClause.AccountId = res.locals.AccountId;
 		}
@@ -1668,7 +1672,7 @@ exports.reschedule = async function (req, res) {
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.username}`);
 
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1 || (res.locals.role != 'FM' && res.locals.AccountId != res.locals.masterAccountId)) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role) || (res.locals.role != 'FM' && res.locals.AccountId != res.locals.masterAccountId)) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -1679,7 +1683,7 @@ exports.reschedule = async function (req, res) {
 		const newDateUTC = parseUTC(req.body.date, res.locals.region || 'IN');
 		if (!newDateUTC) return res.send({ success: false, error: 'Invalid date.' });
 
-		if (res.locals.role != "FM" && !req.query.GeozoneId) {
+		if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
@@ -1702,7 +1706,7 @@ exports.reschedule = async function (req, res) {
 
 		let missedServiceTypeIds = req.body.schedules && req.body.schedules.length && req.body.schedules.filter(x => !x.schedule).map(x => parseInt(x.ServiceTypeId)) || [];
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -1720,12 +1724,12 @@ exports.reschedule = async function (req, res) {
 			}
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 			geozoneWhere.AccountId = res.locals.accountIds;
 		}
 
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			whereClause.AccountId = res.locals.AccountId;
 		}
 
@@ -1816,7 +1820,7 @@ exports.reschedule = async function (req, res) {
 			log.rescheduledBy = [user.rescheduledBy];
 		}
 		status = 4;
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -1828,12 +1832,12 @@ exports.reschedule = async function (req, res) {
 		}
 		geozone.type = status == 4 && 'Secondary' || 'Primary';
 
-		if (res.locals.role == "AMCC FTE") { // if amcc default primary and schedule
+		if (USERROLES.isAMCCFTE(res.locals.role)) { // if amcc default primary and schedule
 			status = 0;
 			geozone.type = 'Primary';
 		}
 
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			//#region primary/secondary assignment
 			geozone.type = 'Primary';
 			res.GeozoneId = Geozone.id;
@@ -1933,7 +1937,7 @@ exports.gateIn = async function (req, res) {
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.username}`);
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1 || res.locals.AccountId != res.locals.masterAccountId) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role) || res.locals.AccountId != res.locals.masterAccountId) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -1945,7 +1949,7 @@ exports.gateIn = async function (req, res) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -1963,7 +1967,7 @@ exports.gateIn = async function (req, res) {
 			GeozoneId: req.query.GeozoneId
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
@@ -2036,7 +2040,7 @@ exports.approve = async function (req, res) {
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.username}`);
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1 || res.locals.AccountId != res.locals.masterAccountId) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role) || res.locals.AccountId != res.locals.masterAccountId) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -2048,7 +2052,7 @@ exports.approve = async function (req, res) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -2066,7 +2070,7 @@ exports.approve = async function (req, res) {
 			GeozoneId: req.query.GeozoneId
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
@@ -2161,7 +2165,7 @@ exports.reject = async function (req, res) {
 	try {
 		RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.username}`);
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1 || res.locals.AccountId != res.locals.masterAccountId) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role) || res.locals.AccountId != res.locals.masterAccountId) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -2173,7 +2177,7 @@ exports.reject = async function (req, res) {
 			return res.send({ success: false, error: "Please select workshop and proceed." });
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent('avolve/servicebooking/reject', 'error', geozoneResult.error, `Workshops not assigned to this user.`);
@@ -2191,7 +2195,7 @@ exports.reject = async function (req, res) {
 			GeozoneId: req.query.GeozoneId
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = res.locals.accountIds;
 		}
 
@@ -2286,7 +2290,7 @@ exports.getServicesByAsset = async function (req, res) { //Service schedule scre
 			return res.send({ success: false, error: 'Missing InputParameter.' });
 		}
 
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -2413,13 +2417,13 @@ exports.getServicesByAsset = async function (req, res) { //Service schedule scre
 async function missedAlertsExcel(missedAlerts, req, res) {
 	const ROUTE='app/servicebookings/missedAlertsExcel';
 	try {
-		let accountIds = ["XE FTE", "ARSA"].includes(res.locals.role) ? [req.query.AccountId] : [res.locals.AccountId];
+		let accountIds = USERROLES.XEFTE_ROLES.includes(res.locals.role) ? [req.query.AccountId] : [res.locals.AccountId];
 		let kamUsers = [];
-		if (["AMCC FTE"].includes(res.locals.role)) {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			accountIds = res.locals.accountIds;
 		}
 
-		if (res.locals.role == 'AMCS FTE') {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let custResult = await avolveHelper.getAMCSCustomersByFte(res.locals.UserId, res.locals.masterAccountId);
 			accountIds = custResult.success && custResult.results.map(x => x.id) || [];
 		}

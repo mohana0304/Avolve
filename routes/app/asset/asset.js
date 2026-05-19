@@ -4,14 +4,14 @@ const logger = require('../../../lib/helpers/rmqlog');
 const avolveHelper = require('../../../lib/helpers/avolveHelper');
 const { Op } = require('sequelize')
 const evt = require('../../../lib/event');
-const { isAmcFtes } = require('../../../lib/helpers/userroles');
 const axleConfigAvolve = require('../../../config/axleConfig-apollo.json');
 const { handleApiError } = require("../../middlewares/helper");
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.countByGeozone = async function (req, res) {
 	const ROUTE = 'app/assets/countByGeozone';
 	try {
-		if (!isAmcFtes(res.locals.role)) {
+		if (!USERROLES.isAmcFtes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -20,7 +20,7 @@ exports.countByGeozone = async function (req, res) {
 		}
 
 		let accountIds = res.locals.accountIds;
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			res.GeozoneId = req.params.id;
 
 			let result = await avolveHelper.fetchCustomers(res);
@@ -179,12 +179,12 @@ exports.countByGeozone = async function (req, res) {
 exports.listByStatus = async function (req, res) {
 	const ROUTE = 'app/assets/listByStatus';
 	try {
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.isAmcFtes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let accountIds = res.locals.accountIds;
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 
 			if (!geozoneResult.success) {
@@ -206,7 +206,7 @@ exports.listByStatus = async function (req, res) {
 			}
 		}
 
-		if (res.locals.role == "FM") {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			accountIds = [res.locals.AccountId];
 		}
 
@@ -239,7 +239,7 @@ exports.listByStatus = async function (req, res) {
 		}
 
 		whereClause.plan = 1; //AMCS
-		if (res.locals.role == 'AMCC FTE') whereClause.plan = 2; //AMCC
+		if (USERROLES.isAMCCFTE(res.locals.role)) whereClause.plan = 2; //AMCC
 
 		let Assets = await models.Asset.findAll({
 			attributes: [
@@ -287,6 +287,10 @@ exports.updateOdo = async function (req, res) { //n
 	
     const ROUTE = 'app/assets/updateOdo';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
+		
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
 		if (!req.params.id) {
@@ -333,7 +337,7 @@ exports.deleteAssets = async function (req, res) {
 		
 		logger.RaiseLogEvent(ROUTE, req.body.assetIds, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
-		if (['KAM', 'FTS KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -410,12 +414,12 @@ exports.deleteAssets = async function (req, res) {
 exports.listByUser = async function (req, res) {
 	const ROUTE = 'app/assets/listByUser';
 	try {
-		if (['HO Sales', 'ZM', 'KAM'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let accountIds = [], kamUsers = [];
-		if (["KAM", "FTS KAM"].includes(res.locals.role)) {
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			accountIds = req.query.AccountId && [req.query.AccountId] || res.locals.accountIds;
 		} else {
 			if (req.query.UserId) {
@@ -424,7 +428,7 @@ exports.listByUser = async function (req, res) {
 				let result = await avolveHelper.getCustomersByUser(req.query.UserId, false, res.locals.masterAccountId);
 				accountIds = result.results.map(x => x.id);
 			} else {
-				let zmId = ["HO Sales", "FTS HO"].includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
+				let zmId = USERROLES.HO_ROLES.includes(res.locals.role) && res.locals.zmIds || res.locals.UserId;
 				let kamResult = await avolveHelper.getKamListByUser(zmId);
 				kamUsers = kamResult.results;
 				if (kamResult.success && kamResult.results.length) {
@@ -437,7 +441,7 @@ exports.listByUser = async function (req, res) {
 		let fteUsers = await avolveHelper.getFteUsersByCustomers(accountIds, false, res.locals.masterAccountId);
 		fteUsers = fteUsers.results || [];
 
-		let accountUsers = await avolveHelper.getUsersByAccounts(accountIds, ["KAM", "FTS KAM"].includes(res.locals.role) && [] || kamUsers, fteUsers);
+		let accountUsers = await avolveHelper.getUsersByAccounts(accountIds, USERROLES.KAM_ROLES.includes(res.locals.role) && [] || kamUsers, fteUsers);
 		accountUsers = accountUsers.results || [];
 
 		let whereClause = {
@@ -529,7 +533,7 @@ exports.listByUser = async function (req, res) {
 				let AccountId = Asset.AccountId;
 				let AplOffers = Asset.Account.AplOffers.length && Asset.Account.AplOffers.sort(function (a, b) { return a.id - b.id }) || [];
 				let accountUser = accountUsers && accountUsers.length && accountUsers.find(x => x.AccountId == AccountId) || '';
-				asset.kamName = ["KAM", "FTS KAM"].includes(res.locals.role) ? res.locals.userFullName || res.locals.username : accountUser && accountUser.kamName || '';
+				asset.kamName = USERROLES.KAM_ROLES.includes(res.locals.role) ? res.locals.userFullName || res.locals.username : accountUser && accountUser.kamName || '';
 				asset.fteName = accountUser && accountUser.fteName || '';
 				let matchHistories = fitmentHistories.filter(x => x.AssetId == Asset.id);
 				matchHistories = matchHistories.sort(function (a, b) {
@@ -587,6 +591,9 @@ exports.listByUser = async function (req, res) {
 exports.listByUserDownload = async function (req, res) {
 	const ROUTE = 'app/assets/listByUserDownload';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let { consumerKey, type, tableName } = avolveHelper.getInsightDump(24, 'all') || {}; // vehicle summary
 		let valdidateBatchReport = await avolveHelper.isValidBatchReport(res.locals, req.query, type);
 		if (valdidateBatchReport.error || valdidateBatchReport.message) {
@@ -595,7 +602,7 @@ exports.listByUserDownload = async function (req, res) {
 
 		let { User = {}, partialEmail = '' } = valdidateBatchReport.result || {};
 		let AccountIds = req.query.AccountId ? [req.query.AccountId] : [res.locals.AccountId];
-		if (['HO Sales', 'FTS HO', 'ZM', 'FTS ZM', 'KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			AccountIds = req.query.AccountIds ? JSON.parse(req.query.AccountIds) : [];
 		}
 		let allCustomers = false;
@@ -610,7 +617,7 @@ exports.listByUserDownload = async function (req, res) {
 			input: {
 				tempTable: tempTableName,
 				accountIds: AccountIds,
-				fromApp: ['FM', 'FO'].includes(res.locals.role),
+				fromApp: USERROLES.FLEET_ROLES.includes(res.locals.role),
 				deviceId: req.query.deviceId,
 				typeId: 24,
 				allCustomers,
@@ -645,6 +652,10 @@ exports.listByUserDownload = async function (req, res) {
 exports.payKmList = async function (req, res) {
 	const ROUTE = 'app/assets/payKmList ';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		if (res.locals.AccountId != res.locals.masterAccountId) { // Avolve
 			return res.send({ success: false, error: 'Not authorized to this API' });
 		}
@@ -822,7 +833,7 @@ exports.monitoredFitment = async function (req, res) {
 	const ROUTE = 'app/assets/monitoredFitment';
 	try {
 		logger.RaiseLogEvent(ROUTE, req.body.AssetId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
-		if (!['KAM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -945,7 +956,7 @@ exports.monitoredFitment = async function (req, res) {
 exports.listMFVehicles = async function (req, res) {
 	const ROUTE = 'app/assets/listMFVehicles ';
 	try {
-		if (!['HO Sales', 'ZM', 'KAM', 'FTS HO', 'FTS ZM', 'FTS KAM'].includes(res.locals.role)) {
+		if (!USERROLES.FMS_SALES_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
@@ -999,6 +1010,9 @@ exports.listMFVehicles = async function (req, res) {
 exports.getVehicle = async function (req, res) {
 	const ROUTE = 'app/assets/getVehicle';
 	try {
+		if(!USERROLES.isValidRole(res.local.role)){
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id && Number.isInteger(req.params.id) && req.params.id < 0) {
 			return res.send({ success: false, error: 'Input parameter missing' });
 		}
@@ -1027,13 +1041,13 @@ exports.getVehicle = async function (req, res) {
 			AccountId: AccountId
 		}
 
-		if (['AMCS FTE', 'AMCC FTE', 'KAM'].indexOf(res.locals.role) > -1) {
+		if ([...USERROLES.AMC_FTE_ROLES,...USERROLES.KAM_ROLES].includes(res.locals.role)) {
 			let accountIds = [];
-			if (res.locals.role == "AMCS FTE") {
+			if (USERROLES.isAMCSFTE(res.locals.role)) {
 				whereClause.plan = 1; //AMCS
 				delete whereClause.AccountId;
 			} else {
-				if (!['KAM'].includes(res.locals.role)) {
+				if (!USERROLES.KAM_ROLES.includes(res.locals.role)) {
 					whereClause.plan = 2; //AMCC
 				}
 				accountIds = res.locals.accountIds;
@@ -1043,7 +1057,7 @@ exports.getVehicle = async function (req, res) {
 			}
 		}
 
-		if (['XE FTE', 'ARSA', 'FTS KAM'].indexOf(res.locals.role) > -1) { //For xpert edge, KAM and FTS KAM - customers based
+		if ([...USERROLES.XEFTE_ROLES,...USERROLES.KAM_ROLES].includes(res.locals.role)) { //For xpert edge, KAM and FTS KAM - customers based
 			if (!req.query.AccountId) {
 				return res.send({ success: false, error: `Please select customer to proceed.` });
 			}
@@ -1100,17 +1114,17 @@ exports.getVehicle = async function (req, res) {
 			},
 			order: [['date', 'desc']]
 		});
-		if (VehicleInspection && res.locals.role == 'XE FTE') {
+		if (VehicleInspection && USERROLES.isXeFTE(res.locals.role)) {
 			isOnbServiceDone = true;
 		}
 
 		// Flag to restirct vehicle inspection for XE FTE.
 		let showVehicleInspection = true;
-		if (VehicleInspection && res.locals.role == 'XE FTE' && moment().subtract(72, 'hours').isSameOrBefore(moment(VehicleInspection.date))) {
+		if (VehicleInspection && USERROLES.isXeFTE(res.locals.role) && moment().subtract(72, 'hours').isSameOrBefore(moment(VehicleInspection.date))) {
 			showVehicleInspection = false;
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			vehicleInsWhere.AccountId = Asset.AccountId;
 			tyreInsWhere.AccountId = Asset.AccountId;
 		}
@@ -1151,6 +1165,9 @@ exports.getVehicle = async function (req, res) {
 exports.listSelect = async function (req, res) {
 	const ROUTE = 'app/assets/listSelect';
 	try {
+		if (!USERROLES.isValidRole(res.locals.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		const whereClause = {
 			AccountId: res.locals.AccountId,
 			active: true
@@ -1215,6 +1232,9 @@ exports.listSelect = async function (req, res) {
 exports.getApolloFleetAsset = async function (req, res) {
 	const ROUTE = 'app/assets/getApolloFleetAsset';
 	try {
+		if (!USERROLES.isValidRole(res.locals.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id && Number.isInteger(req.params.id) && req.params.id < 0) {
 			return res.send({ success: false, error: 'Input parameter missing' });
 		}
@@ -1247,9 +1267,9 @@ exports.getApolloFleetAsset = async function (req, res) {
 			AccountId: res.locals.AccountId
 		};
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
 			let accountIds = [];
-			if (res.locals.role == "AMCS FTE") {
+			if (USERROLES.isAMCSFTE(res.locals.role)) {
 				whereClause.plan = 1; //AMCS
 				delete whereClause.AccountId;
 			} else {
@@ -1261,7 +1281,7 @@ exports.getApolloFleetAsset = async function (req, res) {
 			}
 		}
 
-		if ([...KAM_ROLES,].indexOf(res.locals.role) > -1) { //For xpert edge, KAM and FTS KAM - customers based
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) { //For xpert edge, KAM and FTS KAM - customers based
 			if (!req.query.AccountId) {
 				return res.send({ success: false, error: `Please select customer to proceed.` });
 			}
@@ -1308,7 +1328,7 @@ exports.getApolloFleetAsset = async function (req, res) {
 			return res.send({ success: false, error: 'Vehicle not found.' });
 		}
 
-		if (res.locals.role == "AMCS FTE") {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			vehicleInsWhere.AccountId = Asset.AccountId;
 			tyreInsWhere.AccountId = Asset.AccountId;
 		}
@@ -1345,6 +1365,9 @@ exports.getApolloFleetAsset = async function (req, res) {
 exports.createAsset = async function (req, res) {
 	const ROUTE = 'app/assets/createAsset ';
 	try {
+		if (!USERROLES.isValidRole(res.locals.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (res.locals.AccountId != res.locals.masterAccountId) { //Apollo Fleet
 			return res.send({ success: false, error: 'Not authorized!' });
@@ -1550,10 +1573,10 @@ exports.listCustomerAssets = async function (req, res) {
 		if (listAll) {
 			customerAccountIds.push(res.locals.AccountId);
 		}
-		if (res.locals.role != "Admin" && listAll) {
+		if (!USERROLES.isAdmin(res.locals.role) && listAll) {
 			customerAccountIds = res.locals.accountIds
 		}
-		if (res.locals.role == "KAM" && listAll) {
+		if (USERROLES.isKAM(res.locals.role) && listAll) {
 			let custResult = await avolveHelper.getCustomersByUser(res.locals.UserId, true, res.locals.masterAccountId);
 			if (custResult.success && custResult.results.length) {
 				customerAccountIds = custResult.results.map(x => x.id);
@@ -1708,6 +1731,9 @@ async function createCustomerAssetsExcel(resultSet, req, res) {
 exports.listAssets = async function (req, res) {
 	const ROUTE = 'app/assets/listAssets';
 	try {
+		if (!USERROLES.isValidRole(res.locals.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let dataReceived = {
 			sessionData: res.locals,
 			useragent: req.headers['user-agent'] && req.headers['user-agent'] || ""
@@ -1736,9 +1762,9 @@ exports.listAssets = async function (req, res) {
 			AccountId: Account.id
 		}
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
 			let accountIds = [];
-			if (res.locals.role == "AMCS FTE") {
+			if (USERROLES.isAMCSFTE(res.locals.role)) {
 				let geozoneResult = await avolveHelper.fetchGeozones(res);
 				if (geozoneResult && geozoneResult.geozones && geozoneResult.geozones.length) {
 					res.GeozoneId = geozoneResult.geozones.map(x => x.id);
@@ -1757,7 +1783,7 @@ exports.listAssets = async function (req, res) {
 			inspectionWhere.AccountId = { [Op.in]: accountIds };
 		}
 
-		if (['XE FTE', 'ARSA'].indexOf(res.locals.role) > -1) { //For xpert edge - customers based
+		if (USERROLES.XEFTE_ROLES.includes(res.locals.role)) { //For xpert edge - customers based
 			if (!req.query.AccountId) {
 				return res.send({ success: false, error: `Please select customer to proceed.` });
 			}
@@ -1794,7 +1820,7 @@ exports.listAssets = async function (req, res) {
 		});
 
 		inspectionWhere.inspectionDate = moment().subtract(72, 'hours').toISOString();
-		if (['AMCS FTE', 'AMCC FTE', 'XE FTE', 'ARSA'].indexOf(res.locals.role) > -1) { //For AMC FTE fetch only their assets
+		if ([...USERROLES.AMC_FTE_ROLES,...USERROLES.XEFTE_ROLES].includes(res.locals.role)) { //For AMC FTE fetch only their assets
 			inspectionWhere.AssetId = { [Op.in]: assets.map(x => x.id) };
 		}
 
@@ -1870,6 +1896,9 @@ exports.listCount = async function (req, res) {
 exports.listAxleConfigs = async function (req, res) {
 	const ROUTE = 'app/assets/listAxleConfigs';
 	try {
+		if (!USERROLES.isValidRole(res.locals.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let Account = await models.Account.findOne({
 			attributes: ['id', 'type'],
 			where: {
@@ -1892,6 +1921,9 @@ exports.listAxleConfigs = async function (req, res) {
 exports.listAxleProfiles = async function (req, res) {
 	const ROUTE = 'app/assets/listAxleProfiles';
 	try {
+		if (!USERROLES.isValidRole(res.locals.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let Account = await models.Account.findOne({
 			attributes: ['id', 'type'],
 			where: {

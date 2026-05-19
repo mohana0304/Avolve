@@ -3,10 +3,14 @@ const moment = require('moment');
 const { getInsightDump } = require('../../../lib/helpers/avolveHelper');
 const { Op } = require('sequelize');
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.listDownloads = async function (req, res) {
 	const ROUTE = 'app/insights/listDownloads';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let insightWhere = {
 			AccountId: res.locals.AccountId,
 			UserId: res.locals.UserId,

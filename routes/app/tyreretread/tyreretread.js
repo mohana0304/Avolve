@@ -1,11 +1,12 @@
 const models = require("../../../models");
 const { RaiseLogEvent } = require("../../../lib/helpers/rmqlog");
 const { handleApiError } = require('../../middlewares/helper')
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.list = async function (req, res) {
 	const ROUTE = 'app/tyreretreads/list'
 	try {
-		if (['XE FTE', 'ARSA'].includes(res.locals.role) && !req.query.AccountId) { //For xpert edge - customers based
+		if (USERROLES.isXeFTE(res.locals.role) && !req.query.AccountId) { //For xpert edge - customers based
 			return res.send({ success: false, error: 'Please select customer to proceed.' });
 		}
 

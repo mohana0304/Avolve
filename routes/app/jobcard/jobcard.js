@@ -7,12 +7,13 @@ const md5 = require('../../../lib/md5').md5;
 const { RaiseLogEvent } = require('../../../lib/helpers/rmqlog');
 const { Op } = require('sequelize');
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.create = async function (req, res) {
     const ROUTE = 'app/jobcards/create';
     try {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
-        if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+        if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized' });
         }
 
@@ -101,11 +102,11 @@ exports.create = async function (req, res) {
         }
         //#endregion
 
-        if (res.locals.role == "AMCC FTE" && Asset.plan != 2) {
+        if (USERROLES.isAMCCFTE(res.locals.role) && Asset.plan != 2) {
             return res.send({ success: false, error: 'AMC Captive offer not offered for this vehicle.' });
         }
 
-        if (res.locals.role == "AMCS FTE" && Asset.plan != 1) {
+        if (USERROLES.isAMCSFTE(res.locals.role) && Asset.plan != 1) {
             return res.send({ success: false, error: 'AMC Shared offer not offered for this vehicle.' });
         }
 
@@ -367,11 +368,11 @@ exports.listByStatus = async function (req, res) {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
         //#region validations & workshop, customer access
-        if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1) {
+        if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 
-        if (res.locals.role != "FM" && !req.query.GeozoneId) {
+        if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
             return res.send({ success: false, error: "Please select workshop and proceed." });
         }
 
@@ -385,13 +386,13 @@ exports.listByStatus = async function (req, res) {
             active: true
         }
 
-        if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+        if (USERROLES.isAMCSFTE(res.locals.role)) {
             assetWhere.plan = 1;
             whereClause.GeozoneId = req.query.GeozoneId;
             delete whereClause.AccountId;
         }
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             assetWhere.plan = 2;
             assetWhere.AccountId = res.locals.accountIds;
             whereClause.AccountId = res.locals.accountIds;
@@ -452,7 +453,7 @@ exports.assetJobHist = async function (req, res) {
     try {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
-        if (['AMCS FTE', 'AMCC FTE', 'FM', 'FO'].indexOf(res.locals.role) == -1) {
+        if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FLEET_ROLES].includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 
@@ -461,12 +462,12 @@ exports.assetJobHist = async function (req, res) {
             AccountId: res.locals.AccountId
         };
 
-        if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+        if (USERROLES.isAMCSFTE(res.locals.role)) {
             whereClause.GeozoneId = req.query.GeozoneId;
             delete whereClause.AccountId;
         }
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
             whereClause.GeozoneId = req.query.GeozoneId;
         }
@@ -531,7 +532,7 @@ exports.getServiceLogs = async function (req, res) {
     try {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
-        if (['AMCS FTE', 'AMCC FTE', 'FM', 'FO'].indexOf(res.locals.role) == -1) {
+        if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FLEET_ROLES].includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 
@@ -540,12 +541,12 @@ exports.getServiceLogs = async function (req, res) {
             AccountId: res.locals.AccountId
         };
 
-        if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+        if (USERROLES.isAMCSFTE(res.locals.role)) {
             whereClause.GeozoneId = req.query.GeozoneId;
             delete whereClause.AccountId;
         }
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
             whereClause.GeozoneId = req.query.GeozoneId;
         }
@@ -697,6 +698,9 @@ async function getServiceCount(serviceName, services, AlignStatus) {
 exports.assetJobHistById = async function (req, res) {
     const ROUTE = 'app/jobcards/assetJobHistById';
     try {
+        if (!USERROLES.isValidRole(res.local.role)) {
+                    return res.send({ success: false, error: 'Not Authorized' });
+        }
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.username}`);
 
         if (!req.params.id) {
@@ -706,11 +710,11 @@ exports.assetJobHistById = async function (req, res) {
         let whereClause = {
             AssetId: req.params.id
         }
-        if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+        if (USERROLES.isAMCSFTE(res.locals.role)) {
             whereClause.GeozoneId = req.query.GeozoneId;
         }
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
             whereClause.GeozoneId = req.query.GeozoneId;
         }
@@ -818,12 +822,16 @@ exports.assetJobHistById = async function (req, res) {
 exports.get = async function (req, res) {
     const ROUTE = 'app/jobcards/get';
     try {
+        if (!USERROLES.isValidRole(res.local.role)) {
+                    return res.send({ success: false, error: 'Not Authorized' });
+        }
+
         //#region validations & workshop, customer access
         if (!req.params.id) {
             return res.send({ success: false, error: 'Missing input parameter.' });
         }
 
-        if (res.locals.role != "FM" && !req.query.GeozoneId) {
+        if (!USERROLES.FM_ROLES.includes(res.locals.role) && !req.query.GeozoneId) {
             return res.send({ success: false, error: "Please select workshop and proceed." });
         }
 
@@ -832,13 +840,13 @@ exports.get = async function (req, res) {
             id: req.params.id
         };
 
-        if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+        if (USERROLES.isAMCSFTE(res.locals.role)) {
             whereClause.GeozoneId = req.query.GeozoneId;
             delete whereClause.AccountId;
         }
         //#endregion
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.GeozoneId = req.query.GeozoneId;
             whereClause.AccountId = res.locals.accountIds;
         }
@@ -1002,7 +1010,7 @@ exports.get = async function (req, res) {
 exports.getLog = async function (req, res) {
     const ROUTE = 'app/jobcards/getLog';
     try {
-        if (['AMCS FTE', 'AMCC FTE', 'FM', 'FO'].indexOf(res.locals.role) == -1) {
+        if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FLEET_ROLES].includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 
@@ -1017,12 +1025,12 @@ exports.getLog = async function (req, res) {
         };
         //#endregion
 
-        if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+        if (USERROLES.isAMCSFTE(res.locals.role)) {
             whereClause.GeozoneId = req.query.GeozoneId;
             delete whereClause.AccountId;
         }
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
             whereClause.GeozoneId = req.query.GeozoneId;
         }
@@ -1271,7 +1279,7 @@ exports.execute = async function (req, res) {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
         //#region validations & workshop, customer access
-        if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+        if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized' });
         }
 
@@ -1291,7 +1299,7 @@ exports.execute = async function (req, res) {
 
         let details = req.body.details && JSON.parse(req.body.details) || [];
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
         }
 
@@ -1781,7 +1789,7 @@ exports.approve = async function (req, res) {
     try {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
-        if (['FM'].indexOf(res.locals.role) == -1) {
+        if (!USERROLES.FM_ROLES.includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 
@@ -1835,7 +1843,7 @@ exports.complete = async function (req, res) {
     try {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
-        if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+        if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 
@@ -1852,7 +1860,7 @@ exports.complete = async function (req, res) {
             GeozoneId: req.query.GeozoneId
         };
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
         }
 
@@ -1924,7 +1932,7 @@ exports.gatepass = async function (req, res) {
     try {
         RaiseLogEvent(ROUTE, res.locals.AccountId, req.params, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
-        if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+        if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
         if (!req.params.id) {
@@ -1940,7 +1948,7 @@ exports.gatepass = async function (req, res) {
             GeozoneId: req.query.GeozoneId
         };
 
-        if (res.locals.role == "AMCC FTE") {
+        if (USERROLES.isAMCCFTE(res.locals.role)) {
             whereClause.AccountId = res.locals.accountIds;
         }
 
@@ -2058,7 +2066,7 @@ exports.gatepass = async function (req, res) {
 exports.getJobCardbyAsset = async function (req, res) {
     const ROUTE = 'app/jobcards/getJobCardbyAsset';
     try {
-        if (!['AMCC FTE', 'AMCS FTE'].includes(res.locals.role)) {
+        if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
             return res.send({ success: false, error: 'Not Authorized.' });
         }
 

@@ -4,28 +4,29 @@ const { fetchGeozones, fetchCustomers, getServiceAlerts } = require('../../../li
 const { formatByRegion } = require('../../../lib/dateFormatter');
 const { Op } = require('sequelize');
 const { handleApiError } = require("../../middlewares/helper");
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.reminders = async function (req, res) {
 	const ROUTE = 'app/serviceschedules/reminders';
 	try {
 		//#region validations & workshop, customer access
-		if (['KAM', 'FTS KAM'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.KAM_ROLES.includes(res.locals.role)) {
 			return res.send({ success: false, error: 'Not Authorized' });
 		}
 
 		let accountIds = res.locals.AccountId;
-		if (["XE FTE", "ARSA"].includes(res.locals.role)) { //For xpert edge - customers based
+		if (USERROLES.XEFTE_ROLES.includes(res.locals.role)) { //For xpert edge - customers based
 			if (!req.query.AccountId) {
 				return res.send({ success: false, error: 'Please select customer and proceed.' });
 			}
 			accountIds = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			accountIds = res.locals.accountIds;
 		}
 
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await fetchGeozones(res);
 			if (!geozoneResult.success) {
 				RaiseLogEvent(ROUTE, 'error', geozoneResult.error, `Workshop not assigned to this user.`);
@@ -64,6 +65,9 @@ exports.reminders = async function (req, res) {
 exports.list = async (req, res) => {
 	const ROUTE = 'app/serviceschedules/list';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let assetWhere = {
 			remove: false
 		};
@@ -100,6 +104,9 @@ exports.list = async (req, res) => {
 exports.vehicleModels = async function (req, res) {
 	const ROUTE = 'app/serviceschedules/vehicleModels';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let whereClause = {};
 		if (res.locals.AccountId == 3924) { // RedTaxi customized model list
 			whereClause.id = [252, 948, 1301, 1302, 1303, 1304, 1305, 1306, 1307, 1308, 1309, 1310, 1311, 1190, 1455];

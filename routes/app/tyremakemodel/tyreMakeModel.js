@@ -2,10 +2,14 @@ const models = require('../../../models');
 const { RaiseLogEvent } = require("../../../lib/helpers/rmqlog.js")
 const path = require('path');
 const { handleApiError } = require('../../middlewares/helper')
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.list = async function (req, res) {
 	const ROUTE = 'app/tyremakemodels/list'
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let TyreMakeModels = await models.TyreMakeModel.findAll({
 			where: { apollo: true },
 			raw: true
@@ -25,6 +29,9 @@ exports.list = async function (req, res) {
 exports.saveEnquiry = async function (req, res) {
 	const ROUTE = 'app/tyremakemodels/saveEnquiry';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		RaiseLogEvent(ROUTE, req.body.customerName, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		let Lead = await models.Lead.create({
 			leadSource: 7,

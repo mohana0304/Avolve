@@ -2,13 +2,14 @@ const models = require("../../../models");
 const logger = require('../../../lib/helpers/rmqlog');
 const avolveHelper = require('../../../lib/helpers/avolveHelper');
 const { handleApiError } = require('../../middlewares/helper')
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.getServices = async function (req, res) {
 	const ROUTE = 'service/getServices';
 	try {
 		logger.RaiseLogEvent(ROUTE, res.locals.AccountId, req.query, `Requested by ${res.locals.username}`);
 
-		if (['AMCS FTE', 'AMCC FTE', 'FM'].indexOf(res.locals.role) == -1 || (res.locals.role != 'FM' && res.locals.AccountId != res.locals.masterAccountId)) {
+		if (![...USERROLES.AMC_FTE_ROLES,...USERROLES.FM_ROLES].includes(res.locals.role) || (!USERROLES.FM_ROLES.includes(res.locals.role) && res.locals.AccountId != res.locals.masterAccountId)) {
 			return res.send({ success: false, error: 'Not Authorized.' });
 		}
 
@@ -24,7 +25,7 @@ exports.getServices = async function (req, res) {
 			remove: false
 		}
 
-		if (res.locals.role == "AMCC FTE") {
+		if (USERROLES.isAMCCFTE(res.locals.role)) {
 			let AccountIds = res.locals.accountIds;
 			if (!AccountIds.length) {
 				return res.send({ success: false, error: `Customer not mapped for this ${res.locals.role} user.` });
@@ -32,7 +33,7 @@ exports.getServices = async function (req, res) {
 			whereClause.AccountId = AccountIds; //AMCC
 		}
 
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 
 			if (!geozoneResult.success) {
@@ -41,7 +42,7 @@ exports.getServices = async function (req, res) {
 			whereClause.plan = 1;
 		}
 
-		if (['FM'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.FM_ROLES.includes(res.locals.role)) {
 			whereClause.AccountId = res.locals.AccountId;
 		}
 
@@ -62,11 +63,11 @@ exports.getServices = async function (req, res) {
 			return res.send({ success: false, error: 'Vehicle not found in system.' });
 		}
 
-		if (res.locals.role == "AMCC FTE" && Asset.plan != 2) {
+		if (USERROLES.isAMCCFTE(res.locals.role) && Asset.plan != 2) {
 			return res.send({ success: false, error: 'AMC Captive offer not offered for this vehicle.' });
 		}
 
-		if (res.locals.role == "AMCS FTE" && Asset.plan != 1) {
+		if (USERROLES.isAMCSFTE(res.locals.role) && Asset.plan != 1) {
 			return res.send({ success: false, error: 'AMC Shared offer not offered for this vehicle.' });
 		}
 
@@ -131,6 +132,9 @@ exports.getSummaryContent = async function (req, res) {
 exports.list = async function (req, res) {
 	const ROUTE = 'service/list ';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let filters = req.query;
 		let conditionalWhere = [];
 		if (filters.visibility)
@@ -148,7 +152,7 @@ exports.list = async function (req, res) {
 
 		let AccountId = res.locals.AccountId;
 		if (Account && [10, 11].indexOf(Account.type) > -1) {
-			if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+			if (USERROLES.isAMCSFTE(res.locals.role)) {
 				let geozoneResult = await avolveHelper.fetchGeozones(res);
 				if (geozoneResult && geozoneResult.geozones && geozoneResult.geozones.length) {
 					res.GeozoneId = geozoneResult.geozones.map(x => x.id);
@@ -163,7 +167,7 @@ exports.list = async function (req, res) {
 				}
 			}
 
-			if (["XE FTE", "ARSA", "AMCC FTE"].indexOf(res.locals.role) > -1) {
+			if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 				AccountId = res.locals.accountIds;
 			}
 

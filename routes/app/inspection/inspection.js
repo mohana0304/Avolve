@@ -9,10 +9,15 @@ const path = require('path');
 const fs = require('fs');
 const { Op } = require('sequelize');
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.inspectVehicle = async function (req, res) {
 	const ROUTE = 'app/inspections/inspectVehicle';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
+
 		logger.RaiseLogEvent(ROUTE, req.body.AssetId, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (!req.body.AssetId || !req.body.lat || !req.body.lon || !req.body.odo || !req.body.date) {
 			return res.send({ success: false, error: 'Input paramters missing.' });
@@ -44,22 +49,21 @@ exports.inspectVehicle = async function (req, res) {
 			order: [['date', 'desc']]
 		});
 
-		if (['AMCS FTE', 'AMCC FTE'].indexOf(res.locals.role) == -1) {
+		if (!USERROLES.AMC_FTE_ROLES.includes(res.locals.role)) {
 			if ((lastDrafInspect && moment(lastDrafInspect.date).isAfter(moment().subtract(72, 'h'))) || (lastInspect && moment(lastInspect.date).isAfter(moment().subtract(72, 'h')))) {
 				return res.send({ success: false, error: 'Vehicle inspection already found within 72 hours time frame.' });
 			}
 		}
 
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			assetWhere.plan = 1; //AMCS
 		}
-
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			assetWhere.AccountId = res.locals.accountIds;
-			if (res.locals.role == 'AMCC FTE') assetWhere.plan = 2; //AMCC
+			if (USERROLES.isAMCCFTE(res.locals.role)) assetWhere.plan = 2; //AMCC
 		}
 
-		if (res.locals.role == 'DE FTE') assetWhere.AccountId = res.locals.AccountId;
+		if (USERROLES.isDeFTE(res.locals.role)) assetWhere.AccountId = res.locals.AccountId;
 
 		let Asset = await models.Asset.findOne({
 			attributes: ['id', 'imei', 'lplate', 'odo', 'axleProfile', 'axleConfig', 'details', 'AccountId', 'plan'],
@@ -315,6 +319,9 @@ exports.inspectVehicle = async function (req, res) {
 exports.nearbyZones = async function (req, res) {
 	const ROUTE = 'app/inspections/nearbyZones';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.query.lat || !req.query.lon) {
 			return res.send({ success: false, error: 'Input paramters missing.' });
 		}
@@ -325,7 +332,7 @@ exports.nearbyZones = async function (req, res) {
 		}
 
 		let geoZoneIds = [];
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			let accountIds = [];
 			if (geozoneResult && geozoneResult.geozones && geozoneResult.geozones.length) {
@@ -342,7 +349,7 @@ exports.nearbyZones = async function (req, res) {
 			}
 		}
 
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) { //For xpert edge & captive - customers based
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) { //For xpert edge & captive - customers based
 			whereClause.AccountId = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
@@ -395,6 +402,9 @@ exports.nearbyZones = async function (req, res) {
 exports.listObservations = async function (req, res) {
 	const ROUTE = 'app/inspections/listObservations';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let systemConfig = await models.SystemConfig.findOne({
 			where: {
 				module: 'Apollo Fleet',
@@ -416,6 +426,9 @@ exports.listObservations = async function (req, res) {
 exports.assetLastInspection = async function (req, res) {
 	const ROUTE = 'app/inspections/assetLastInspection';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Input parameter missing.' });
 		}
@@ -426,7 +439,7 @@ exports.assetLastInspection = async function (req, res) {
 			AccountId: res.locals.AccountId
 		}
 
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let Asset = await models.Asset.findOne({
 				attributes: ['id', 'AccountId'],
 				where: {
@@ -442,7 +455,7 @@ exports.assetLastInspection = async function (req, res) {
 			whereClause.AccountId = Asset.AccountId;
 		}
 
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
@@ -465,12 +478,15 @@ exports.assetLastInspection = async function (req, res) {
 exports.assetLastConsolidateInspection = async function (req, res) {
 	const ROUTE = 'app/inspections/assetLastConsolidateInspection';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Input parameter missing.' });
 		}
 
 		let AccountId = res.locals.AccountId;
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let Asset = await models.Asset.findOne({
 				attributes: ['id', 'AccountId'],
 				where: {
@@ -486,7 +502,7 @@ exports.assetLastConsolidateInspection = async function (req, res) {
 			AccountId = Asset.AccountId;
 		}
 
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			AccountId = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
@@ -578,12 +594,15 @@ exports.assetLastConsolidateInspection = async function (req, res) {
 exports.assetInspectionHistById = async function (req, res) {
 	const ROUTE = 'app/inspections/assetInspectionHistById';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Input parameter missing.' });
 		}
 
 		let AccountId = res.locals.AccountId;
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let Asset = await models.Asset.findOne({
 				attributes: ['id', 'AccountId'],
 				where: {
@@ -599,7 +618,7 @@ exports.assetInspectionHistById = async function (req, res) {
 			AccountId = Asset.AccountId;
 		}
 
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			AccountId = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
@@ -629,10 +648,12 @@ exports.assetInspectionHistById = async function (req, res) {
 exports.assetInspectionHist = async function (req, res) {
 	const ROUTE = 'app/inspections/assetInspectionHist';
 	try {
-
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		let AccountId = [res.locals.AccountId];
 		let plan = [];
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			let geozoneResult = await avolveHelper.fetchGeozones(res);
 			let accountIds = [];
 			if (geozoneResult && geozoneResult.geozones && geozoneResult.geozones.length) {
@@ -647,9 +668,9 @@ exports.assetInspectionHist = async function (req, res) {
 			plan = [1]; //AMCS
 		}
 
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			AccountId = req.query.AccountId && [req.query.AccountId] || res.locals.accountIds;
-			if (res.locals.role == 'AMCC FTE') plan = [2]; //AMCC
+			if (USERROLES.isAMCCFTE(res.locals.role)) plan = [2]; //AMCC
 		}
 
 		let planQuery = '';
@@ -735,6 +756,9 @@ exports.assetInspectionHist = async function (req, res) {
 exports.inspectionHistory = async function (req, res) {
 	const ROUTE = 'app/inspections/inspectionHistory';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Input parameter missing.' });
 		}
@@ -744,11 +768,11 @@ exports.inspectionHistory = async function (req, res) {
 			type: 'v',
 			AccountId: res.locals.AccountId
 		};
-		if (['AMCS FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isAMCSFTE(res.locals.role)) {
 			delete whereClause.AccountId;
 		}
 
-		if (['XE FTE', 'ARSA', 'AMCC FTE'].indexOf(res.locals.role) > -1) {
+		if (USERROLES.isXeFTE(res.locals.role) || USERROLES.isAMCCFTE(res.locals.role)) {
 			whereClause.AccountId = req.query.AccountId && req.query.AccountId || res.locals.accountIds;
 		}
 
@@ -901,6 +925,9 @@ exports.inspectionHistory = async function (req, res) {
 exports.createTyreVerification = async (req, res) => {
 	const ROUTE = 'app/inspections/createTyreVerification';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
 		let tyreData = req.body.tyreData && JSON.parse(req.body.tyreData);
@@ -1055,6 +1082,9 @@ exports.createTyreVerification = async (req, res) => {
 exports.getTyreVerification = async (req, res) => {
 	const ROUTE = 'app/inspections/getTyreVerification';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Missing Input Parameter.' });
 		}
@@ -1145,6 +1175,9 @@ exports.getTyreVerification = async (req, res) => {
 exports.updateTyreVerification = async (req, res) => {
 	const ROUTE = 'app/inspections/updateTyreVerification';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
 		if (!req.params.id) {
@@ -1191,6 +1224,9 @@ exports.updateTyreVerification = async (req, res) => {
 exports.getInspectionSteps = async (req, res) => {
 	const ROUTE = 'app/inspections/getInspectionSteps';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id || !req.query.ServiceBookingId) {
 			return res.send({ success: false, error: 'Missing Input Parameter.' });
 		}
@@ -1283,6 +1319,9 @@ exports.getInspectionSteps = async (req, res) => {
 exports.completeTyreInspection = async (req, res) => {
 	const ROUTE = 'app/inspections/completeTyreInspection';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Missing Input Parameter.' });
@@ -1439,6 +1478,9 @@ exports.completeTyreInspection = async (req, res) => {
 exports.xeGetInspectionSteps = async (req, res) => {
 	const ROUTE = 'app/inspections/xeGetInspectionSteps';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Missing Input Parameter.' });
 		}
@@ -1525,6 +1567,9 @@ exports.xeGetInspectionSteps = async (req, res) => {
 exports.xeGetTyreVerification = async (req, res) => {
 	const ROUTE = 'app/inspections/xeGetTyreVerification';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Missing Input Parameter.' });
 		}
@@ -1616,6 +1661,9 @@ exports.xeGetTyreVerification = async (req, res) => {
 exports.xeCreateTyreVerification = async (req, res) => {
 	const ROUTE = 'app/inspections/xeCreateTyreVerification';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
 		let tyreData = req.body.tyreData && JSON.parse(req.body.tyreData);
@@ -1770,6 +1818,9 @@ exports.xeCreateTyreVerification = async (req, res) => {
 exports.xeCompleteTyreInspection = async (req, res) => {
 	const ROUTE = 'app/inspections/xeCompleteTyreInspection';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+			return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 		if (!req.params.id) {
 			return res.send({ success: false, error: 'Missing Input Parameter.' });
@@ -1925,6 +1976,9 @@ exports.xeCompleteTyreInspection = async (req, res) => {
 exports.xeUpdateTyreVerification = async (req, res) => {
 	const ROUTE = 'app/inspections/xeUpdateTyreVerification';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		logger.RaiseLogEvent(ROUTE, req.params.id, req.body, `Requested by ${res.locals.userFullName} (${res.locals.UserId})`);
 
 		if (!req.params.id) {

@@ -2,10 +2,14 @@ const models = require('../../../models');
 const { Op } = require('sequelize');
 const { RaiseLogEvent } = require('../../../lib/helpers/rmqlog');
 const { handleApiError } = require('../../middlewares/helper');
+const USERROLES = require('../../../lib/helpers/userroles');
 
 exports.fetchBranches = async function (req, res) {
 	const ROUTE = 'app/inventory/fetchBranches';
 	try {
+		if (!USERROLES.isValidRole(res.local.role)) {
+					return res.send({ success: false, error: 'Not Authorized' });
+		}
 		var whereClause = {
 			AccountId: res.locals.AccountId
 		};
