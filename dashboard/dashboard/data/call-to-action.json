@@ -1,0 +1,42 @@
+[
+  {
+    "wearPattern": "Shoulder Wear",
+    "affectedTyres": 48,
+    "affectedVehicles": 31,
+    "priority": "High",
+    "recommendedAction": "Immediate Wheel Alignment",
+    "downloadReport": true
+  },
+  {
+    "wearPattern": "Center Wear",
+    "affectedTyres": 36,
+    "affectedVehicles": 24,
+    "priority": "Medium",
+    "recommendedAction": "Adjust Air Pressure",
+    "downloadReport": true
+  },
+  {
+    "wearPattern": "One Side Wear",
+    "affectedTyres": 28,
+    "affectedVehicles": 19,
+    "priority": "High",
+    "recommendedAction": "Inspect Suspension",
+    "downloadReport": true
+  },
+  {
+    "wearPattern": "Patch Wear",
+    "affectedTyres": 21,
+    "affectedVehicles": 15,
+    "priority": "Medium",
+    "recommendedAction": "Check Brake Balance",
+    "downloadReport": true
+  },
+  {
+    "wearPattern": "Diagonal Wear",
+    "affectedTyres": 16,
+    "affectedVehicles": 10,
+    "priority": "Low",
+    "recommendedAction": "Perform Tyre Rotation",
+    "downloadReport": true
+  }
+]

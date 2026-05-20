@@ -1,0 +1,61 @@
+{
+  "monthlyIPVariation": [
+    {
+      "month": "Jan",
+      "inspectionPercentage": 72
+    },
+    {
+      "month": "Feb",
+      "inspectionPercentage": 78
+    },
+    {
+      "month": "Mar",
+      "inspectionPercentage": 81
+    },
+    {
+      "month": "Apr",
+      "inspectionPercentage": 84
+    },
+    {
+      "month": "May",
+      "inspectionPercentage": 79
+    },
+    {
+      "month": "Jun",
+      "inspectionPercentage": 88
+    }
+  ],
+
+  "topWearPatterns": [
+    {
+      "pattern": "Shoulder Wear",
+      "vehiclesAffected": 48,
+      "severity": "High",
+      "recommendedAction": "Wheel Alignment"
+    },
+    {
+      "pattern": "Center Wear",
+      "vehiclesAffected": 36,
+      "severity": "Medium",
+      "recommendedAction": "Reduce Tyre Pressure"
+    },
+    {
+      "pattern": "One Side Wear",
+      "vehiclesAffected": 28,
+      "severity": "High",
+      "recommendedAction": "Suspension Check"
+    },
+    {
+      "pattern": "Patch Wear",
+      "vehiclesAffected": 21,
+      "severity": "Medium",
+      "recommendedAction": "Brake Inspection"
+    },
+    {
+      "pattern": "Diagonal Wear",
+      "vehiclesAffected": 16,
+      "severity": "Low",
+      "recommendedAction": "Tyre Rotation"
+    }
+  ]
+}

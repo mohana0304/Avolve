@@ -1,0 +1,30 @@
+{
+  "avgTyreMileageNew": [
+    {
+      "month": "Jan",
+      "mileage": 42000
+    },
+    {
+      "month": "Feb",
+      "mileage": 43800
+    },
+    {
+      "month": "Mar",
+      "mileage": 45200
+    },
+    {
+      "month": "Apr",
+      "mileage": 46800
+    },
+    {
+      "month": "May",
+      "mileage": 47500
+    },
+    {
+      "month": "Jun",
+      "mileage": 48900
+    }
+  ],
+
+  "durabilityFactor": 88.5
+}

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tyre Dashboard</title>
+
+  <link rel="icon" href="data:," />
+  <link rel="stylesheet" href="style.css" />
+
+  <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery.flot@0.8.3/jquery.flot.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jquery.flot@0.8.3/jquery.flot.pie.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/flot.tooltip@0.9.0/js/jquery.flot.tooltip.min.js"></script>
+</head>
+
+<body>
+  <main class="main">
+
+    <header class="topbar">
+      <div>
+        <h1>Customer Admin Dashboard</h1>
+        <p>Tyre purchase, vehicle inspection and performance analytics</p>
+      </div>
+
+      <button class="download-btn" onclick="downloadAllReports()">
+        Download All Reports
+      </button>
+    </header>
+
+    <section class="cards">
+      <div class="card">
+        <p>Active Tyres</p>
+        <h2 id="activeTyres">0</h2>
+      </div>
+
+      <div class="card danger-card">
+        <p>Tyres Under 4mm</p>
+        <h2 id="under4mm">0</h2>
+      </div>
+
+      <div class="card">
+        <p>Average Running Days</p>
+        <h2 id="avgDays">0</h2>
+      </div>
+
+      <div class="card">
+        <p>Vehicles Enrolled</p>
+        <h2 id="vehicles">0</h2>
+      </div>
+
+      <div class="card">
+        <p>Vehicle + Tyres Mapped</p>
+        <h2 id="vehicleTyresMapped">0</h2>
+      </div>
+      <div class="card">
+        <p>Retreadability Percentage</p>
+        <h2 id="retreadabilityPercentage">0%</h2>
+      </div>
+    </section>
+
+
+    <section class="grid-3">
+      <div class="chart-card">
+        <h3>Purchase vs Commitment</h3>
+        <div id="purchaseDonut" class="chart pie-chart"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Monthly Purchase</h3>
+        <div id="purchaseLine" class="chart line-chart"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Average Tyre Mileage</h3>
+        <div id="mileageArea" class="chart line-chart"></div>
+      </div>
+    </section>
+
+    <section class="grid-3">
+      <div class="chart-card">
+        <h3>Durability Factor</h3>
+        <div id="durabilityPie" class="chart pie-chart"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Monthly IP Variation</h3>
+        <div id="ipBar" class="chart line-chart"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3>Top Wear Pattern</h3>
+        <div id="wearBar" class="chart line-chart"></div>
+      </div>
+    </section>
+
+    <section class="table-card">
+      <h3>Call To Action</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>Wear Pattern</th>
+            <th>Affected Tyres</th>
+            <th>Affected Vehicles</th>
+            <th>Priority</th>
+            <th>Recommended Action</th>
+            <th>Download</th>
+          </tr>
+        </thead>
+        <tbody id="ctaTable"></tbody>
+      </table>
+    </section>
+    
+    <section class="table-card">
+      <h3>Vehicles Inspection History</h3>
+      <div class="history-buttons">
+        <button onclick="showInspectionVehicles('last7Days')">
+          Last 7 Days
+        </button>
+        <button onclick="showInspectionVehicles('last15Days')">
+          Last 15 Days
+        </button>
+        <button onclick="showInspectionVehicles('last1M')">
+          Last 1 Month
+        </button>
+        <button onclick="showInspectionVehicles('last3M')">
+          Last 3 Month
+        </button>
+        <button onclick="showInspectionVehicles('last6M')">
+          Last 6 Month
+        </button>
+      </div>
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Vehicle</th>
+              <th>Wheeler</th>
+              <th>Config</th>
+              <th>Name</th>
+              <th>Date</th>
+              <th>All Tyre Inspected</th>
+              <th>Odometer</th>
+              <th>Workshop</th>
+              <th>ResetOdo</th>
+              <th>NotOperOdo</th>
+            </tr>
+          </thead>
+          <tbody id="inspectionVehicleTable"></tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+  <div id="tooltip"></div>
+  <script src="script.js"></script>
+</body>
+</html>

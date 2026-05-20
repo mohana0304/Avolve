@@ -1,0 +1,234 @@
+{
+  "tyresPurchase": {
+    "purchaseVsCommitment": {
+      "commitment": 1200,
+      "purchased": 1325,
+      "achievementPercentage": 110.4
+    },
+
+    "quarterWisePurchase": [
+      {
+        "quarter": "Q1",
+        "months": [
+          { "month": "Jan", "purchase": 280, "target": 300, "percentage": 93 },
+          { "month": "Feb", "purchase": 320, "target": 300, "percentage": 106 },
+          { "month": "Mar", "purchase": 360, "target": 300, "percentage": 120 }
+        ]
+      },
+      {
+        "quarter": "Q2",
+        "months": [
+          { "month": "Apr", "purchase": 290, "target": 300, "percentage": 96 },
+          { "month": "May", "purchase": 260, "target": 300, "percentage": 86 },
+          { "month": "Jun", "purchase": 340, "target": 300, "percentage": 113 }
+        ]
+      }
+    ]
+  },
+
+  "tyreHealthPerformance": {
+    "activeTyresRunning": 4820,
+
+    "tyresUnder4mm": 326,
+
+    "avgTyreRunningDays": 412,
+
+    "avgTyreMileageNew": [
+      { "month": "Jan", "mileage": 42000 },
+      { "month": "Feb", "mileage": 43800 },
+      { "month": "Mar", "mileage": 45200 },
+      { "month": "Apr", "mileage": 46800 },
+      { "month": "May", "mileage": 47500 },
+      { "month": "Jun", "mileage": 48900 }
+    ],
+
+    "durabilityFactor": 88.5,
+
+    "retreadabilityPercentage": 72.4
+  },
+
+  "vehicles": {
+    "vehicleEnrolled": 860,
+
+    "vehicleTyresMapped": 822,
+
+    "inspectionHistory": {
+      "last7Days": 48,
+      "last15Days": 96,
+      "last1Month": 182,
+      "last3Months": 510,
+      "last6Months": 790
+    }
+  },
+
+  "inspection": {
+    "vehiclesInspected": {
+      "last30Days": 168,
+      "last60Days": 320,
+      "last90Days": 476,
+      "last120Days": 690
+    },
+
+    "tyresInspected": {
+      "last30Days": 720,
+      "last60Days": 1320,
+      "last90Days": 1980,
+      "last120Days": 2640
+    },
+
+    "vehicleNotInspected": {
+      "last30Days": 42,
+      "last60Days": 30,
+      "last90Days": 18,
+      "last120Days": 8
+    },
+
+    "monthlyIPVariation": [
+      { "month": "Jan", "inspectionPercentage": 72 },
+      { "month": "Feb", "inspectionPercentage": 78 },
+      { "month": "Mar", "inspectionPercentage": 81 },
+      { "month": "Apr", "inspectionPercentage": 84 },
+      { "month": "May", "inspectionPercentage": 79 },
+      { "month": "Jun", "inspectionPercentage": 88 }
+    ],
+
+    "topWearPatterns": [
+      {
+        "pattern": "Shoulder Wear",
+        "vehiclesAffected": 48,
+        "severity": "High",
+        "recommendedAction": "Wheel Alignment"
+      },
+      {
+        "pattern": "Center Wear",
+        "vehiclesAffected": 36,
+        "severity": "Medium",
+        "recommendedAction": "Reduce Tyre Pressure"
+      },
+      {
+        "pattern": "One Side Wear",
+        "vehiclesAffected": 28,
+        "severity": "High",
+        "recommendedAction": "Suspension Check"
+      },
+      {
+        "pattern": "Patch Wear",
+        "vehiclesAffected": 21,
+        "severity": "Medium",
+        "recommendedAction": "Brake Inspection"
+      },
+      {
+        "pattern": "Diagonal Wear",
+        "vehiclesAffected": 16,
+        "severity": "Low",
+        "recommendedAction": "Tyre Rotation"
+      }
+    ]
+  },
+
+  "callToAction": [
+    {
+      "wearPattern": "Shoulder Wear",
+      "affectedTyres": 48,
+      "affectedVehicles": 31,
+      "priority": "High",
+      "recommendedAction": "Immediate Wheel Alignment",
+      "downloadReport": true
+    },
+    {
+      "wearPattern": "Center Wear",
+      "affectedTyres": 36,
+      "affectedVehicles": 24,
+      "priority": "Medium",
+      "recommendedAction": "Adjust Air Pressure",
+      "downloadReport": true
+    },
+    {
+      "wearPattern": "One Side Wear",
+      "affectedTyres": 28,
+      "affectedVehicles": 19,
+      "priority": "High",
+      "recommendedAction": "Inspect Suspension",
+      "downloadReport": true
+    },
+    {
+      "wearPattern": "Patch Wear",
+      "affectedTyres": 21,
+      "affectedVehicles": 15,
+      "priority": "Medium",
+      "recommendedAction": "Check Brake Balance",
+      "downloadReport": true
+    },
+    {
+      "wearPattern": "Diagonal Wear",
+      "affectedTyres": 16,
+      "affectedVehicles": 10,
+      "priority": "Low",
+      "recommendedAction": "Perform Tyre Rotation",
+      "downloadReport": true
+    }
+  ],
+  
+  "inspectionHistory": [
+    {
+      "vehicle": "TN87A7634",
+      "wheeler": "14W",
+      "config": "10x2x4",
+      "name": "Steer,Steer,Lift,Drive,Dummy",
+      "date": "2026-05-14",
+      "allTyreInspected": true,
+      "odometer": 655465,
+      "workshop": "SKS Workshop",
+      "resetOdo": false,
+      "notOperOdo": false
+    },
+    {
+      "vehicle": "TN45B9821",
+      "wheeler": "12W",
+      "config": "8x2x2",
+      "name": "Steer,Drive,Dummy",
+      "date": "2026-05-08",
+      "allTyreInspected": false,
+      "odometer": 452300,
+      "workshop": "Coimbatore Workshop",
+      "resetOdo": true,
+      "notOperOdo": false
+    },
+    {
+      "vehicle": "TN38C5577",
+      "wheeler": "10W",
+      "config": "6x2x2",
+      "name": "Steer,Drive,Lift",
+      "date": "2026-04-20",
+      "allTyreInspected": true,
+      "odometer": 378900,
+      "workshop": "Madurai Workshop",
+      "resetOdo": false,
+      "notOperOdo": true
+    },
+    {
+      "vehicle": "TN72G6789",
+      "wheeler": "18W",
+      "config": "14x4x4",
+      "name": "Steer,Steer,Lift,Drive,Drive,Dummy",
+      "date": "2026-03-18",
+      "allTyreInspected": true,
+      "odometer": 812560,
+      "workshop": "Chennai Workshop",
+      "resetOdo": false,
+      "notOperOdo": true
+    },
+    {
+      "vehicle": "TN09J9090",
+      "wheeler": "16W",
+      "config": "12x4x4",
+      "name": "Steer,Steer,Drive,Drive,Dummy",
+      "date": "2026-01-15",
+      "allTyreInspected": true,
+      "odometer": 920300,
+      "workshop": "Bangalore Workshop",
+      "resetOdo": false,
+      "notOperOdo": false
+    }
+  ]
+}

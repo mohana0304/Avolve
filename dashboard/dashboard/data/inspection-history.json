@@ -1,0 +1,62 @@
+[
+  {
+    "vehicle": "TN87A7634",
+    "wheeler": "14W",
+    "config": "10x2x4",
+    "name": "Steer,Steer,Lift,Drive,Dummy",
+    "date": "2026-05-14",
+    "allTyreInspected": true,
+    "odometer": 655465,
+    "workshop": "SKS Workshop",
+    "resetOdo": false,
+    "notOperOdo": false
+  },
+  {
+    "vehicle": "TN45B9821",
+    "wheeler": "12W",
+    "config": "8x2x2",
+    "name": "Steer,Drive,Dummy",
+    "date": "2026-05-08",
+    "allTyreInspected": false,
+    "odometer": 452300,
+    "workshop": "Coimbatore Workshop",
+    "resetOdo": true,
+    "notOperOdo": false
+  },
+  {
+    "vehicle": "TN38C5577",
+    "wheeler": "10W",
+    "config": "6x2x2",
+    "name": "Steer,Drive,Lift",
+    "date": "2026-04-20",
+    "allTyreInspected": true,
+    "odometer": 378900,
+    "workshop": "Madurai Workshop",
+    "resetOdo": false,
+    "notOperOdo": true
+  },
+  {
+    "vehicle": "TN72G6789",
+    "wheeler": "18W",
+    "config": "14x4x4",
+    "name": "Steer,Steer,Lift,Drive,Drive,Dummy",
+    "date": "2026-03-18",
+    "allTyreInspected": true,
+    "odometer": 812560,
+    "workshop": "Chennai Workshop",
+    "resetOdo": false,
+    "notOperOdo": true
+  },
+  {
+    "vehicle": "TN09J9090",
+    "wheeler": "16W",
+    "config": "12x4x4",
+    "name": "Steer,Steer,Drive,Drive,Dummy",
+    "date": "2026-01-15",
+    "allTyreInspected": true,
+    "odometer": 920300,
+    "workshop": "Bangalore Workshop",
+    "resetOdo": false,
+    "notOperOdo": false
+  }
+]

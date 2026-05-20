@@ -1,0 +1,56 @@
+{
+  "purchaseVsCommitment": {
+    "commitment": 1200,
+    "purchased": 1325,
+    "achievementPercentage": 110.4
+  },
+
+  "quarterWisePurchase": [
+    {
+      "quarter": "Q1",
+      "months": [
+        {
+          "month": "Jan",
+          "purchase": 280,
+          "target": 300,
+          "percentage": 93
+        },
+        {
+          "month": "Feb",
+          "purchase": 320,
+          "target": 300,
+          "percentage": 106
+        },
+        {
+          "month": "Mar",
+          "purchase": 360,
+          "target": 300,
+          "percentage": 120
+        }
+      ]
+    },
+    {
+      "quarter": "Q2",
+      "months": [
+        {
+          "month": "Apr",
+          "purchase": 290,
+          "target": 300,
+          "percentage": 96
+        },
+        {
+          "month": "May",
+          "purchase": 260,
+          "target": 300,
+          "percentage": 86
+        },
+        {
+          "month": "Jun",
+          "purchase": 340,
+          "target": 300,
+          "percentage": 113
+        }
+      ]
+    }
+  ]
+}
