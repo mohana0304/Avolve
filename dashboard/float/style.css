@@ -91,6 +91,9 @@ body {
   box-shadow: 0 8px 25px rgba(92, 45, 144, 0.08);
 }
 
+.chart-card{
+  width:90%;
+}
 .table-card {
   width: 100%;
   overflow: hidden;
