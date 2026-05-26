@@ -229,6 +229,30 @@
       "workshop": "Bangalore Workshop",
       "resetOdo": false,
       "notOperOdo": false
+    },
+    {
+      "vehicle": "TN72G6890",
+      "wheeler": "18W",
+      "config": "14x4x4",
+      "name": "Steer,Steer,Lift,Drive,Drive,Dummy",
+      "date": "2026-05-21",
+      "allTyreInspected": true,
+      "odometer": 812560,
+      "workshop": "Chennai Workshop",
+      "resetOdo": false,
+      "notOperOdo": true
+    },
+    {
+      "vehicle": "TN72G6089",
+      "wheeler": "18W",
+      "config": "14x4x4",
+      "name": "Steer,Steer,Lift,Drive,Drive,Dummy",
+      "date": "2026-05-21",
+      "allTyreInspected": true,
+      "odometer": 812560,
+      "workshop": "Delhi Workshop",
+      "resetOdo": false,
+      "notOperOdo": true
     }
   ]
 }

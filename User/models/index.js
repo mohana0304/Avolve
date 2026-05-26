@@ -1,0 +1,9 @@
+const { DataTypes } = require('sequelize');
+const sequelize = require('../config/db');
+const redis = require('../config/redis');
+const db = {};
+db.sequelize = sequelize;
+db.Sequelize = require('sequelize');
+db.redis = redis;
+db.UserSession = require('./userSession')(sequelize, DataTypes);
+module.exports = db;

@@ -77,17 +77,30 @@ function renderPurchaseBar() {
       show: false
     },
 
-    grid: {
-      borderColor: "#e2e8f0",
-      hoverable: true,
-      clickable: true,
-      margin: {
-        top: 30,
-        right: 35,
-        bottom: 40,
-        left: 100
-      }
-    }
+grid: {
+    borderWidth: {
+      top: 0,
+      right: 0,
+      bottom: 1,
+      left: 1
+    },
+    borderColor: "#e2e8f0",
+    hoverable: true,
+    clickable: true
+},
+  xaxis: {
+    min: 0,
+    tickColor: "transparent" 
+  },
+  yaxis: {
+    ticks: [
+      [0, "Purchased"],
+      [1, "Commitment"]
+    ],
+    min: -0.5,
+    max: 1.5,
+    tickColor: "transparent" 
+  }
   });
   tooltipData.purchaseDonut = {
     title: "Purchase vs Commitment",
@@ -129,8 +142,8 @@ function renderPurchaseLine() {
       points: { show: true, radius: 4, fillColor: "#ffffff" }
     }
   ], {
-    xaxis: { ticks: ticks, min: -0.5, max: months.length - 0.5 },
-    yaxis: { min: 200, max: 400 },
+    xaxis: { ticks: ticks, min: -0.5, max: months.length - 0.5,tickColor: "transparent" },
+    yaxis: { min: 200, max: 400 ,tickColor: "transparent"},
     legend: { show: false },
     grid: {
       borderColor: "#e2e8f0",
@@ -167,8 +180,8 @@ function renderMileageArea() {
       points: { show: true, radius: 4, fillColor: "#ffffff" }
     }
   ], {
-    xaxis: { ticks: ticks, min: -0.5, max: mileage.length - 0.5 },
-    yaxis: { min: 35000 },
+    xaxis: { ticks: ticks, min: -0.5, max: mileage.length - 0.5,tickColor: "transparent" },
+    yaxis: { min: 35000,tickColor: "transparent" },
     legend: { show: false },
     grid: {
       borderColor: "#e2e8f0",
@@ -231,8 +244,8 @@ function renderIPBar() {
       bars: { show: true, barWidth: 0.45, align: "center" }
     }
   ], {
-    xaxis: { ticks: ticks, min: -0.5, max: ip.length - 0.5 },
-    yaxis: { min: 0, max: 100 },
+    xaxis: { ticks: ticks, min: -0.5, max: ip.length - 0.5,tickColor: "transparent" },
+    yaxis: { min: 0, max: 100,tickColor: "transparent" },
     legend: { show: false },
     grid: {
       borderColor: "#e2e8f0",
@@ -262,8 +275,8 @@ function renderWearBar() {
       bars: { show: true, barWidth: 0.45, align: "center" }
     }
   ], {
-    xaxis: { ticks: ticks, min: -0.5, max: wear.length - 0.5 },
-    yaxis: { min: 0 },
+    xaxis: { ticks: ticks, min: -0.5, max: wear.length - 0.5,tickColor: "transparent" },
+    yaxis: { min: 0 ,tickColor: "transparent"},
     legend: { show: false },
     grid: {
       borderColor: "#e2e8f0",
